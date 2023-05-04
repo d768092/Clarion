@@ -8,15 +8,7 @@ localhost:4334
 localhost:4345
 localhost:4346
 PARAMS
-standard
-10
-100
-standard
 2
+10
+100
 1000
-messaging
-10
-100
-standard
-10
-100

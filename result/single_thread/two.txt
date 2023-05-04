@@ -1,0 +1,64 @@
+Client average compute time: 46.910525ms
+
+Server average compute time: 62.73779ms
+
+2 servers, 128 msgs per batch, 127 byte messages
+shuffle time: 7.729967ms, average: 8.858464ms
+reveal time: 14.759251ms, average: 12.973482ms
+batches completed: 5
+Average time per batch: 22.388357ms
+
+2 servers, 256 msgs per batch, 127 byte messages
+shuffle time: 30.374973ms, average: 20.18808ms
+reveal time: 15.581548ms, average: 21.569896ms
+batches completed: 5
+Average time per batch: 42.441788ms
+
+2 servers, 512 msgs per batch, 127 byte messages
+shuffle time: 36.768056ms, average: 36.170879ms
+reveal time: 59.87057ms, average: 50.73483ms
+batches completed: 5
+Average time per batch: 88.006674ms
+
+2 servers, 1024 msgs per batch, 127 byte messages
+shuffle time: 71.406883ms, average: 71.011486ms
+reveal time: 93.104134ms, average: 94.575518ms
+batches completed: 5
+Average time per batch: 167.69239ms
+
+2 servers, 2048 msgs per batch, 127 byte messages
+shuffle time: 143.368295ms, average: 139.710465ms
+reveal time: 113.592011ms, average: 155.303011ms
+batches completed: 5
+Average time per batch: 299.289041ms
+
+2 servers, 4096 msgs per batch, 127 byte messages
+shuffle time: 268.645945ms, average: 264.620373ms
+reveal time: 412.817895ms, average: 285.440135ms
+batches completed: 5
+Average time per batch: 559.550515ms
+
+2 servers, 8192 msgs per batch, 127 byte messages
+shuffle time: 441.759068ms, average: 458.406684ms
+reveal time: 645.04174ms, average: 655.226107ms
+batches completed: 5
+Average time per batch: 1.128735584s
+
+2 servers, 16384 msgs per batch, 127 byte messages
+shuffle time: 768.146331ms, average: 832.161826ms
+reveal time: 1.221248674s, average: 1.139723642s
+batches completed: 5
+Average time per batch: 2.000497981s
+
+2 servers, 32768 msgs per batch, 127 byte messages
+shuffle time: 1.548054168s, average: 1.502648529s
+reveal time: 2.261759422s, average: 2.26516023s
+batches completed: 5
+Average time per batch: 3.827896166s
+
+2 servers, 65536 msgs per batch, 127 byte messages
+shuffle time: 2.796668466s, average: 2.946803416s
+reveal time: 4.196844747s, average: 4.173332413s
+batches completed: 5
+Average time per batch: 7.223554264s
+

@@ -43,21 +43,63 @@ func add(z, x, y *Element) {
 
 	z[0], carry = bits.Add64(x[0], y[0], 0)
 	z[1], carry = bits.Add64(x[1], y[1], carry)
+	z[2], carry = bits.Add64(x[2], y[2], carry)
+	z[3], carry = bits.Add64(x[3], y[3], carry)
+	z[4], carry = bits.Add64(x[4], y[4], carry)
+	z[5], carry = bits.Add64(x[5], y[5], carry)
+	z[6], carry = bits.Add64(x[6], y[6], carry)
+	z[7], carry = bits.Add64(x[7], y[7], carry)
+	z[8], carry = bits.Add64(x[8], y[8], carry)
+	z[9], carry = bits.Add64(x[9], y[9], carry)
+	z[10], carry = bits.Add64(x[10], y[10], carry)
+	z[11], carry = bits.Add64(x[11], y[11], carry)
+	z[12], carry = bits.Add64(x[12], y[12], carry)
+	z[13], carry = bits.Add64(x[13], y[13], carry)
+	z[14], carry = bits.Add64(x[14], y[14], carry)
+	z[15], carry = bits.Add64(x[15], y[15], carry)
 	// if we overflowed the last addition, z >= q
 	// if z >= q, z = z - q
 	if carry != 0 {
 		// we overflowed, so z >= q
-		z[0], carry = bits.Sub64(z[0], 18446744073709551457, 0)
-		z[1], carry = bits.Sub64(z[1], 18446744073709551615, carry)
+		z[0], carry = bits.Sub64(z[0], 422487, 0)
+		z[1], carry = bits.Sub64(z[1], 0, carry)
+		z[2], carry = bits.Sub64(z[2], 0, carry)
+		z[3], carry = bits.Sub64(z[3], 0, carry)
+		z[4], carry = bits.Sub64(z[4], 0, carry)
+		z[5], carry = bits.Sub64(z[5], 0, carry)
+		z[6], carry = bits.Sub64(z[6], 0, carry)
+		z[7], carry = bits.Sub64(z[7], 0, carry)
+		z[8], carry = bits.Sub64(z[8], 0, carry)
+		z[9], carry = bits.Sub64(z[9], 0, carry)
+		z[10], carry = bits.Sub64(z[10], 0, carry)
+		z[11], carry = bits.Sub64(z[11], 0, carry)
+		z[12], carry = bits.Sub64(z[12], 0, carry)
+		z[13], carry = bits.Sub64(z[13], 0, carry)
+		z[14], carry = bits.Sub64(z[14], 0, carry)
+		z[15], carry = bits.Sub64(z[15], 144115188075855872, carry)
 		return
 	}
 
 	// if z > q --> z -= q
 	// note: this is NOT constant time
-	if !(z[1] < 18446744073709551615 || (z[1] == 18446744073709551615 && (z[0] < 18446744073709551457))) {
+	if !(z[15] < 144115188075855872 || (z[15] == 144115188075855872 && (z[14] < 0 || (z[14] == 0 && (z[13] < 0 || (z[13] == 0 && (z[12] < 0 || (z[12] == 0 && (z[11] < 0 || (z[11] == 0 && (z[10] < 0 || (z[10] == 0 && (z[9] < 0 || (z[9] == 0 && (z[8] < 0 || (z[8] == 0 && (z[7] < 0 || (z[7] == 0 && (z[6] < 0 || (z[6] == 0 && (z[5] < 0 || (z[5] == 0 && (z[4] < 0 || (z[4] == 0 && (z[3] < 0 || (z[3] == 0 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 422487))))))))))))))))))))))))))))))) {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 18446744073709551457, 0)
-		z[1], _ = bits.Sub64(z[1], 18446744073709551615, b)
+		z[0], b = bits.Sub64(z[0], 422487, 0)
+		z[1], b = bits.Sub64(z[1], 0, b)
+		z[2], b = bits.Sub64(z[2], 0, b)
+		z[3], b = bits.Sub64(z[3], 0, b)
+		z[4], b = bits.Sub64(z[4], 0, b)
+		z[5], b = bits.Sub64(z[5], 0, b)
+		z[6], b = bits.Sub64(z[6], 0, b)
+		z[7], b = bits.Sub64(z[7], 0, b)
+		z[8], b = bits.Sub64(z[8], 0, b)
+		z[9], b = bits.Sub64(z[9], 0, b)
+		z[10], b = bits.Sub64(z[10], 0, b)
+		z[11], b = bits.Sub64(z[11], 0, b)
+		z[12], b = bits.Sub64(z[12], 0, b)
+		z[13], b = bits.Sub64(z[13], 0, b)
+		z[14], b = bits.Sub64(z[14], 0, b)
+		z[15], _ = bits.Sub64(z[15], 144115188075855872, b)
 	}
 }
 
@@ -66,21 +108,63 @@ func double(z, x *Element) {
 
 	z[0], carry = bits.Add64(x[0], x[0], 0)
 	z[1], carry = bits.Add64(x[1], x[1], carry)
+	z[2], carry = bits.Add64(x[2], x[2], carry)
+	z[3], carry = bits.Add64(x[3], x[3], carry)
+	z[4], carry = bits.Add64(x[4], x[4], carry)
+	z[5], carry = bits.Add64(x[5], x[5], carry)
+	z[6], carry = bits.Add64(x[6], x[6], carry)
+	z[7], carry = bits.Add64(x[7], x[7], carry)
+	z[8], carry = bits.Add64(x[8], x[8], carry)
+	z[9], carry = bits.Add64(x[9], x[9], carry)
+	z[10], carry = bits.Add64(x[10], x[10], carry)
+	z[11], carry = bits.Add64(x[11], x[11], carry)
+	z[12], carry = bits.Add64(x[12], x[12], carry)
+	z[13], carry = bits.Add64(x[13], x[13], carry)
+	z[14], carry = bits.Add64(x[14], x[14], carry)
+	z[15], carry = bits.Add64(x[15], x[15], carry)
 	// if we overflowed the last addition, z >= q
 	// if z >= q, z = z - q
 	if carry != 0 {
 		// we overflowed, so z >= q
-		z[0], carry = bits.Sub64(z[0], 18446744073709551457, 0)
-		z[1], carry = bits.Sub64(z[1], 18446744073709551615, carry)
+		z[0], carry = bits.Sub64(z[0], 422487, 0)
+		z[1], carry = bits.Sub64(z[1], 0, carry)
+		z[2], carry = bits.Sub64(z[2], 0, carry)
+		z[3], carry = bits.Sub64(z[3], 0, carry)
+		z[4], carry = bits.Sub64(z[4], 0, carry)
+		z[5], carry = bits.Sub64(z[5], 0, carry)
+		z[6], carry = bits.Sub64(z[6], 0, carry)
+		z[7], carry = bits.Sub64(z[7], 0, carry)
+		z[8], carry = bits.Sub64(z[8], 0, carry)
+		z[9], carry = bits.Sub64(z[9], 0, carry)
+		z[10], carry = bits.Sub64(z[10], 0, carry)
+		z[11], carry = bits.Sub64(z[11], 0, carry)
+		z[12], carry = bits.Sub64(z[12], 0, carry)
+		z[13], carry = bits.Sub64(z[13], 0, carry)
+		z[14], carry = bits.Sub64(z[14], 0, carry)
+		z[15], carry = bits.Sub64(z[15], 144115188075855872, carry)
 		return
 	}
 
 	// if z > q --> z -= q
 	// note: this is NOT constant time
-	if !(z[1] < 18446744073709551615 || (z[1] == 18446744073709551615 && (z[0] < 18446744073709551457))) {
+	if !(z[15] < 144115188075855872 || (z[15] == 144115188075855872 && (z[14] < 0 || (z[14] == 0 && (z[13] < 0 || (z[13] == 0 && (z[12] < 0 || (z[12] == 0 && (z[11] < 0 || (z[11] == 0 && (z[10] < 0 || (z[10] == 0 && (z[9] < 0 || (z[9] == 0 && (z[8] < 0 || (z[8] == 0 && (z[7] < 0 || (z[7] == 0 && (z[6] < 0 || (z[6] == 0 && (z[5] < 0 || (z[5] == 0 && (z[4] < 0 || (z[4] == 0 && (z[3] < 0 || (z[3] == 0 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 422487))))))))))))))))))))))))))))))) {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 18446744073709551457, 0)
-		z[1], _ = bits.Sub64(z[1], 18446744073709551615, b)
+		z[0], b = bits.Sub64(z[0], 422487, 0)
+		z[1], b = bits.Sub64(z[1], 0, b)
+		z[2], b = bits.Sub64(z[2], 0, b)
+		z[3], b = bits.Sub64(z[3], 0, b)
+		z[4], b = bits.Sub64(z[4], 0, b)
+		z[5], b = bits.Sub64(z[5], 0, b)
+		z[6], b = bits.Sub64(z[6], 0, b)
+		z[7], b = bits.Sub64(z[7], 0, b)
+		z[8], b = bits.Sub64(z[8], 0, b)
+		z[9], b = bits.Sub64(z[9], 0, b)
+		z[10], b = bits.Sub64(z[10], 0, b)
+		z[11], b = bits.Sub64(z[11], 0, b)
+		z[12], b = bits.Sub64(z[12], 0, b)
+		z[13], b = bits.Sub64(z[13], 0, b)
+		z[14], b = bits.Sub64(z[14], 0, b)
+		z[15], _ = bits.Sub64(z[15], 144115188075855872, b)
 	}
 }
 
@@ -88,10 +172,38 @@ func sub(z, x, y *Element) {
 	var b uint64
 	z[0], b = bits.Sub64(x[0], y[0], 0)
 	z[1], b = bits.Sub64(x[1], y[1], b)
+	z[2], b = bits.Sub64(x[2], y[2], b)
+	z[3], b = bits.Sub64(x[3], y[3], b)
+	z[4], b = bits.Sub64(x[4], y[4], b)
+	z[5], b = bits.Sub64(x[5], y[5], b)
+	z[6], b = bits.Sub64(x[6], y[6], b)
+	z[7], b = bits.Sub64(x[7], y[7], b)
+	z[8], b = bits.Sub64(x[8], y[8], b)
+	z[9], b = bits.Sub64(x[9], y[9], b)
+	z[10], b = bits.Sub64(x[10], y[10], b)
+	z[11], b = bits.Sub64(x[11], y[11], b)
+	z[12], b = bits.Sub64(x[12], y[12], b)
+	z[13], b = bits.Sub64(x[13], y[13], b)
+	z[14], b = bits.Sub64(x[14], y[14], b)
+	z[15], b = bits.Sub64(x[15], y[15], b)
 	if b != 0 {
 		var c uint64
-		z[0], c = bits.Add64(z[0], 18446744073709551457, 0)
-		z[1], _ = bits.Add64(z[1], 18446744073709551615, c)
+		z[0], c = bits.Add64(z[0], 422487, 0)
+		z[1], c = bits.Add64(z[1], 0, c)
+		z[2], c = bits.Add64(z[2], 0, c)
+		z[3], c = bits.Add64(z[3], 0, c)
+		z[4], c = bits.Add64(z[4], 0, c)
+		z[5], c = bits.Add64(z[5], 0, c)
+		z[6], c = bits.Add64(z[6], 0, c)
+		z[7], c = bits.Add64(z[7], 0, c)
+		z[8], c = bits.Add64(z[8], 0, c)
+		z[9], c = bits.Add64(z[9], 0, c)
+		z[10], c = bits.Add64(z[10], 0, c)
+		z[11], c = bits.Add64(z[11], 0, c)
+		z[12], c = bits.Add64(z[12], 0, c)
+		z[13], c = bits.Add64(z[13], 0, c)
+		z[14], c = bits.Add64(z[14], 0, c)
+		z[15], _ = bits.Add64(z[15], 144115188075855872, c)
 	}
 }
 
@@ -101,17 +213,45 @@ func neg(z, x *Element) {
 		return
 	}
 	var borrow uint64
-	z[0], borrow = bits.Sub64(18446744073709551457, x[0], 0)
-	z[1], _ = bits.Sub64(18446744073709551615, x[1], borrow)
+	z[0], borrow = bits.Sub64(422487, x[0], 0)
+	z[1], borrow = bits.Sub64(0, x[1], borrow)
+	z[2], borrow = bits.Sub64(0, x[2], borrow)
+	z[3], borrow = bits.Sub64(0, x[3], borrow)
+	z[4], borrow = bits.Sub64(0, x[4], borrow)
+	z[5], borrow = bits.Sub64(0, x[5], borrow)
+	z[6], borrow = bits.Sub64(0, x[6], borrow)
+	z[7], borrow = bits.Sub64(0, x[7], borrow)
+	z[8], borrow = bits.Sub64(0, x[8], borrow)
+	z[9], borrow = bits.Sub64(0, x[9], borrow)
+	z[10], borrow = bits.Sub64(0, x[10], borrow)
+	z[11], borrow = bits.Sub64(0, x[11], borrow)
+	z[12], borrow = bits.Sub64(0, x[12], borrow)
+	z[13], borrow = bits.Sub64(0, x[13], borrow)
+	z[14], borrow = bits.Sub64(0, x[14], borrow)
+	z[15], _ = bits.Sub64(144115188075855872, x[15], borrow)
 }
 
 func reduce(z *Element) {
 
 	// if z > q --> z -= q
 	// note: this is NOT constant time
-	if !(z[1] < 18446744073709551615 || (z[1] == 18446744073709551615 && (z[0] < 18446744073709551457))) {
+	if !(z[15] < 144115188075855872 || (z[15] == 144115188075855872 && (z[14] < 0 || (z[14] == 0 && (z[13] < 0 || (z[13] == 0 && (z[12] < 0 || (z[12] == 0 && (z[11] < 0 || (z[11] == 0 && (z[10] < 0 || (z[10] == 0 && (z[9] < 0 || (z[9] == 0 && (z[8] < 0 || (z[8] == 0 && (z[7] < 0 || (z[7] == 0 && (z[6] < 0 || (z[6] == 0 && (z[5] < 0 || (z[5] == 0 && (z[4] < 0 || (z[4] == 0 && (z[3] < 0 || (z[3] == 0 && (z[2] < 0 || (z[2] == 0 && (z[1] < 0 || (z[1] == 0 && (z[0] < 422487))))))))))))))))))))))))))))))) {
 		var b uint64
-		z[0], b = bits.Sub64(z[0], 18446744073709551457, 0)
-		z[1], _ = bits.Sub64(z[1], 18446744073709551615, b)
+		z[0], b = bits.Sub64(z[0], 422487, 0)
+		z[1], b = bits.Sub64(z[1], 0, b)
+		z[2], b = bits.Sub64(z[2], 0, b)
+		z[3], b = bits.Sub64(z[3], 0, b)
+		z[4], b = bits.Sub64(z[4], 0, b)
+		z[5], b = bits.Sub64(z[5], 0, b)
+		z[6], b = bits.Sub64(z[6], 0, b)
+		z[7], b = bits.Sub64(z[7], 0, b)
+		z[8], b = bits.Sub64(z[8], 0, b)
+		z[9], b = bits.Sub64(z[9], 0, b)
+		z[10], b = bits.Sub64(z[10], 0, b)
+		z[11], b = bits.Sub64(z[11], 0, b)
+		z[12], b = bits.Sub64(z[12], 0, b)
+		z[13], b = bits.Sub64(z[13], 0, b)
+		z[14], b = bits.Sub64(z[14], 0, b)
+		z[15], _ = bits.Sub64(z[15], 144115188075855872, b)
 	}
 }
