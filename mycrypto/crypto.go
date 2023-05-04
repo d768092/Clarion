@@ -87,7 +87,7 @@ func DecryptCT(ct []byte) []byte{
 }
 
 //outputs a mac on the msg and a key share seed for each server
-func WeirdMac(numServers int, msg []byte, messagingMode bool) ([]byte, [][]byte) {
+func WeirdMac(numServers int, msg []byte) ([]byte, [][]byte) {
         
     //generate key shares
     keyShareSeeds := make([][]byte, numServers)
@@ -104,16 +104,16 @@ func WeirdMac(numServers int, msg []byte, messagingMode bool) ([]byte, [][]byte)
     msgLen := len(msg)
     keyLen := msgLen
     keyShares := make([][]byte, numServers)
-    if messagingMode {//just use the seed as the actual share
-        for i:= 0; i < numServers; i++ {
-            keyShares[i] = keyShareSeeds[i]
-        }
-        keyLen = 16
-    } else {
-        for i:= 0; i < numServers; i++ {
-            keyShares[i] = AesPRG(msgLen, keyShareSeeds[i])
-        }
+    // if messagingMode {//just use the seed as the actual share
+    //     for i:= 0; i < numServers; i++ {
+    //         keyShares[i] = keyShareSeeds[i]
+    //     }
+    //     keyLen = 16
+    // } 
+    for i:= 0; i < numServers; i++ {
+        keyShares[i] = AesPRG(msgLen, keyShareSeeds[i])
     }
+    
     
     //merge the shares
     var temp modp.Element
@@ -127,17 +127,13 @@ func WeirdMac(numServers int, msg []byte, messagingMode bool) ([]byte, [][]byte)
         copy(keys[i*16:(i+1)*16], keyPiece.Bytes())
     }
     
-    return ComputeMac(msg, keys, messagingMode), keyShareSeeds
+    return ComputeMac(msg, keys), keyShareSeeds
 }
 
 //compute MAC in the clear
-func ComputeMac(msg []byte, keys []byte, messagingMode bool) []byte {
+func ComputeMac(msg []byte, keys []byte) []byte {
     
     msgLen := len(msg)
-    
-    if messagingMode {
-        msgLen = 16
-    }
     
     msgBlocks := msgLen / 16
     if msgLen % 16 != 0 {
@@ -160,9 +156,9 @@ func ComputeMac(msg []byte, keys []byte, messagingMode bool) []byte {
 }
 
 //check mac in the clear
-func CheckMac(msg, tag []byte, keys []byte, messagingMode bool) bool {
+func CheckMac(msg, tag []byte, keys []byte) bool {
  
-    return bytes.Equal(ComputeMac(msg, keys, messagingMode), tag)
+    return bytes.Equal(ComputeMac(msg, keys), tag)
 }
 
 //expand a seed using aes in CTR mode
@@ -804,10 +800,10 @@ func TestCheckSharesAreZero() bool {
     return CheckSharesAreZero(batchSize, numServers, flatShares)
 }
 
-func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte,  db [][]byte, leader, messagingMode, aggregate, partTwo bool) []byte {
+func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte,  db [][]byte, leader, aggregate, partTwo bool) []byte {
 
     keyBlocks := msgBlocks
-    if messagingMode || partTwo {
+    if partTwo {
         keyBlocks = 1
     }
     
@@ -836,7 +832,7 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
                     myMsgShare.SetBytes(db[i][16*j:16*(j+1)])
                     keyIndex := i*16*keyBlocks + 16*j
                     msgIndex := len(mergedMaskedShares)/2 + keyIndex
-                    if partTwo && !messagingMode {
+                    if partTwo {
                         msgIndex = 16*batchSize + i*16*msgBlocks + 16*j
                     }
                     maskedKey.SetBytes(mergedMaskedShares[keyIndex:keyIndex+16])
@@ -859,7 +855,7 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
                 }
                 
                 //for second time, most of this is done in clear
-                if partTwo && !messagingMode {
+                if partTwo {
                     var ctElt modp.Element
                     for j:=1; j < msgBlocks; j++ {
                         ctIndex := 16*batchSize + 16*i*msgBlocks + j*16
@@ -894,12 +890,9 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
 }
 
 //get all the masked stuff together for the blind mac verification
-func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, db [][]byte, messagingMode, partTwo bool) []byte {
+func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, db [][]byte, partTwo bool) []byte {
     
     keyBlocks := msgBlocks
-    if messagingMode {
-        keyBlocks = 1
-    }
     
     maskedMsgShares := make([]byte, 16*batchSize*keyBlocks)
     if partTwo {
@@ -930,13 +923,13 @@ func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, 
                     value.SetBytes(db[i][16*j:16*(j+1)])
                     mask.SetBytes(beaversB[beaverIndex:beaverIndex+16])
                     value.Sub(&value,&mask)
-                    if partTwo && !messagingMode {
+                    if partTwo {
                         index = 16*msgBlocks*i
                     }
                     copy(maskedMsgShares[index:index+16], value.Bytes())
                 }
                 
-                if partTwo && !messagingMode { //the rest of the masked share is actually the unmasked CT
+                if partTwo { //the rest of the masked share is actually the unmasked CT
                     index :=16*msgBlocks*i+16
                     copy(maskedMsgShares[index:index+16*(msgBlocks-1)], 
                          db[i][16:16*msgBlocks])
