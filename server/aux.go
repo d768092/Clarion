@@ -14,7 +14,7 @@ import (
     "shufflemessage/mycrypto" 
 )
 
-func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string, messagingModeParams []bool) {
+func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string) {
     
     numParams := len(msgBlocksParams)
     
@@ -67,7 +67,6 @@ func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string
     
     
     for evalNum := 0; evalNum < numParams; evalNum++ {
-        messagingMode := messagingModeParams[evalNum]
         msgBlocks := msgBlocksParams[evalNum]
         batchSize := batchSizeParams[evalNum]
         
@@ -75,17 +74,8 @@ func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string
         log.Printf("msgBlocks %d\n", msgBlocks)
         log.Printf("batchSize %d\n", batchSize)
         
-        if messagingMode {
-            log.Println("in messaging mode; only first block is MACed/verified")
-        }
-        
-     
         blocksPerRow :=  2*(msgBlocks+1) + 1
         numBeavers := batchSize * (msgBlocks+1)
-        if messagingMode {
-            blocksPerRow = msgBlocks + 3
-            numBeavers = batchSize
-        }
         
         totalBatches := 0
         var totalTime time.Duration
@@ -169,9 +159,6 @@ func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string
             
             if testCount == 4 {
                 fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, msgBlocks*16)
-                if messagingMode {
-                    fmt.Printf("Messaging mode\n")
-                }
                 fmt.Printf("preprocessing data prepared in %s\n", elapsedTime)
                 fmt.Printf("first beaver generation time only: %s, average: %s\n", beaverElapsedTime, beaverTotalTime/time.Duration(totalBatches))
                 fmt.Printf("%d batches prepared, average time %s\n\n", totalBatches, totalTime/time.Duration(totalBatches))

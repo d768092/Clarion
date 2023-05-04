@@ -15,7 +15,7 @@ import (
 
 //some utility functions used by the servers
 
-func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, msgBlocks, batchSize int,  pubKeys []*[32]byte, messagingMode bool) {
+func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, msgBlocks, batchSize int,  pubKeys []*[32]byte) {
     //client connection receiving phase
     numServers := len(setupConns)
     
@@ -49,7 +49,7 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, msgBlocks, batch
             for msgCount := startI; msgCount < endI; msgCount++ {
                 //handle connections from client, pass on boxes
                 
-                clientTransmission, _ := clientSim(msgCount%26, msgBlocks, pubKeys, messagingMode)
+                clientTransmission, _ := clientSim(msgCount%26, msgBlocks, pubKeys)
                 
                 //handle the message sent for this server
                 copy(db[prelimPerm[msgCount]][0:shareLength], clientTransmission[0:shareLength])
@@ -75,7 +75,33 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, msgBlocks, batch
     }
 }
 
-func clientSim(msgType, msgBlocks int, pubKeys []*[32]byte, messagingMode bool) ([]byte, time.Duration) {
+func myClientSim(msgType int, pubKeys []*[32]byte) ([]byte, time.Duration) {
+    startTime := time.Now()
+
+    numServers := len(pubKeys)
+
+    msg := mycrypto.MakeCT(10, msgType)
+
+    bodyShares := mycrypto.Share(numServers, msg)
+
+    msgToSend := bodyShares[0]
+
+    for i:= 1; i < numServers; i++ {
+        
+        //SealAnonymous appends its output to msgToSend
+        boxedMessage, err := box.SealAnonymous(nil, bodyShares[i], pubKeys[i], rand.Reader)
+        if err != nil {
+            panic(err)
+        }
+        msgToSend = append(msgToSend, boxedMessage...)
+    }
+
+    elapsedTime := time.Since(startTime)
+    
+    return msgToSend, elapsedTime
+}
+
+func clientSim(msgType, msgBlocks int, pubKeys []*[32]byte) ([]byte, time.Duration) {
     startTime := time.Now()
     
     numServers := len(pubKeys)
@@ -83,7 +109,7 @@ func clientSim(msgType, msgBlocks int, pubKeys []*[32]byte, messagingMode bool) 
     //generate the MACed ciphertext, MAC, and all the keys; secret share
     //look in vendors/mycrypto/crypto.go for details
     msg := mycrypto.MakeCT(msgBlocks-1, msgType)
-    mac, keySeeds := mycrypto.WeirdMac(numServers, msg, messagingMode)
+    mac, keySeeds := mycrypto.WeirdMac(numServers, msg)
     bodyShares := mycrypto.Share(numServers, append(msg, mac...))
         
     //box shares with the appropriate key share seeds prepended
@@ -243,13 +269,9 @@ func mergeFlattenedDBs(flatDBs []byte, numServers, dbSize int) []byte {
 
 //check all the macs in a merged db
 //and decrypt the messages
-func checkMacsAndDecrypt(mergedDB []byte, numServers, msgBlocks, batchSize int, messagingMode bool) ([][]byte, bool) {
+func checkMacsAndDecrypt(mergedDB []byte, numServers, msgBlocks, batchSize int) ([][]byte, bool) {
     outputDB := make([][]byte, batchSize)
     rowLen := msgBlocks*32 + 16
-    
-    if messagingMode {
-        rowLen = msgBlocks*16 + 32
-    }
     
     success := true
     
@@ -266,7 +288,7 @@ func checkMacsAndDecrypt(mergedDB []byte, numServers, msgBlocks, batchSize int, 
                 tag := row[msgBlocks*16:(msgBlocks+1)*16]
                 keys := row[(msgBlocks+1)*16:]
 
-                if !mycrypto.CheckMac(msg, tag, keys, messagingMode) {
+                if !mycrypto.CheckMac(msg, tag, keys) {
                     success = false
                 }
                 
