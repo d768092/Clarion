@@ -6,9 +6,6 @@ localhost:4332
 localhost:4333
 localhost:4334
 PARAMS
-10
 100
-2
 1000
-10
 100

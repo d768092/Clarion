@@ -14,9 +14,9 @@ import (
     "shufflemessage/mycrypto" 
 )
 
-func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string) {
+func aux (numServers int, batchSizeParams []int, addrs []string) {
     
-    numParams := len(msgBlocksParams)
+    numParams := len(batchSizeParams)
     
     log.Println("This is the auxiliary server")
     
@@ -46,7 +46,7 @@ func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string
     }
  
     conf := &tls.Config{
-         InsecureSkipVerify: true,
+        InsecureSkipVerify: true,
     }
     
     //connect to each server 
@@ -67,15 +67,17 @@ func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string
     
     
     for evalNum := 0; evalNum < numParams; evalNum++ {
-        msgBlocks := msgBlocksParams[evalNum]
+        // msgBlocks := msgBlocksParams[evalNum]
         batchSize := batchSizeParams[evalNum]
         
         log.Printf("numServers %d\n", numServers)
-        log.Printf("msgBlocks %d\n", msgBlocks)
+        // log.Printf("msgBlocks %d\n", msgBlocks)
         log.Printf("batchSize %d\n", batchSize)
         
-        blocksPerRow :=  2*(msgBlocks+1) + 1
-        numBeavers := batchSize * (msgBlocks+1)
+        // blocksPerRow :=  2*(msgBlocks+1) + 1
+        // numBeavers := batchSize * (msgBlocks+1)
+        blocksPerRow :=  5
+        numBeavers := batchSize * 2
         
         totalBatches := 0
         var totalTime time.Duration
@@ -158,7 +160,7 @@ func aux (numServers int, msgBlocksParams, batchSizeParams []int, addrs []string
             totalBatches++
             
             if testCount == 4 {
-                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, msgBlocks*16)
+                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 16)
                 fmt.Printf("preprocessing data prepared in %s\n", elapsedTime)
                 fmt.Printf("first beaver generation time only: %s, average: %s\n", beaverElapsedTime, beaverTotalTime/time.Duration(totalBatches))
                 fmt.Printf("%d batches prepared, average time %s\n\n", totalBatches, totalTime/time.Duration(totalBatches))

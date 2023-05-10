@@ -1,22 +1,25 @@
 package main
 
 import (
-    "log"
-    "crypto/tls"
-    "net"
-    "os"
-    "time"
-    //"unsafe"
-    "crypto/rand"
-    "golang.org/x/crypto/nacl/box"
-    //"sync/atomic"
-    "strconv"
-    "bufio"
-    "strings"
-    "runtime"
-    "fmt"
-        
-    "shufflemessage/mycrypto" 
+	"crypto/tls"
+	"log"
+	"net"
+	"os"
+	"time"
+
+	//"unsafe"
+	"crypto/rand"
+
+	"golang.org/x/crypto/nacl/box"
+
+	//"sync/atomic"
+	"bufio"
+	"fmt"
+	"runtime"
+	"strconv"
+	"strings"
+
+	"shufflemessage/mycrypto"
 )
 
 func main() {    
@@ -29,7 +32,7 @@ func main() {
     //return
     
     numServers := 0
-    msgBlocksParams := make([]int, 0)
+    // msgBlocksParams := make([]int, 0)
     batchSizeParams := make([]int, 0)    
     serverNum := 0
     paramFile := ""
@@ -74,9 +77,9 @@ func main() {
     }
     
     for i:= 0; i < numParams; i++ {
-        scanner.Scan()
-        msgBlocksInput, _ := strconv.Atoi(scanner.Text())
-        msgBlocksParams = append(msgBlocksParams, msgBlocksInput)
+        // scanner.Scan()
+        // msgBlocksInput, _ := strconv.Atoi(scanner.Text())
+        // msgBlocksParams = append(msgBlocksParams, msgBlocksInput)
         scanner.Scan()
         batchSizeInput, _ := strconv.Atoi(scanner.Text())
         batchSizeParams = append(batchSizeParams, batchSizeInput)
@@ -92,7 +95,7 @@ func main() {
     myNum := serverNum
     
     if serverNum == -1 { //aux server
-        aux(numServers, msgBlocksParams, batchSizeParams, addrs)
+        aux(numServers, batchSizeParams, addrs)
         return
     } else if serverNum == 0 {
         log.Println("This server is the leader")
@@ -115,7 +118,7 @@ func main() {
     defer ln.Close()
     
     conf := &tls.Config{
-         InsecureSkipVerify: true,
+        InsecureSkipVerify: true,
     }
     
     //set up connections between all the servers
@@ -189,25 +192,26 @@ func main() {
     }
     
     for evalNum := 0; evalNum < numParams; evalNum++ {
-        msgBlocks := msgBlocksParams[evalNum]
+        // msgBlocks := msgBlocksParams[evalNum]
         batchSize := batchSizeParams[evalNum]
         
         log.Printf("numServers %d\n", numServers)
-        log.Printf("msgBlocks %d\n", msgBlocks)
+        // log.Printf("msgBlocks %d\n", msgBlocks)
         log.Printf("batchSize %d\n", batchSize)
         
         log.Println("\nClient performance test")
         var totalClientTime time.Duration
         for i:= 0; i < 10; i++ {
-            _, clientTime:= clientSim(batchSize, msgBlocks, pubKeys)
+            _, clientTime:= clientSim(batchSize, pubKeys)
             totalClientTime += clientTime
-            
         }
         fmt.Printf("Client average compute time: %s\n\n", totalClientTime/time.Duration(10))
         
         //some relevant values
-        blocksPerRow :=  2*(msgBlocks+1) + 1 
-        numBeavers := batchSize * (msgBlocks +1)
+        // blocksPerRow :=  2*(msgBlocks+1) + 1 
+        // numBeavers := batchSize * (msgBlocks +1)
+        blocksPerRow := 5
+        numBeavers := batchSize * 2
         
         // if messagingMode {
         //     blocksPerRow = msgBlocks + 3
@@ -280,9 +284,9 @@ func main() {
             //NOTE: since the purpose of this evaluation is to measure the performance once the servers have already received the messages from the client, I'm just going to have the lead server generate the client queries and pass them on to the others to save time
             //receiving client connections phase 
             if leader {
-                leaderReceivingPhase(db, setupConns, msgBlocks+1, batchSize, pubKeys)
+                leaderReceivingPhase(db, setupConns, batchSize, pubKeys)
             } else {
-                otherReceivingPhase(db, setupConns, numServers, msgBlocks+1, batchSize, pubKeys[serverNum], mySecKey, serverNum)
+                otherReceivingPhase(db, setupConns, numServers, batchSize, pubKeys[serverNum], mySecKey, serverNum)
             }
             //runtime.GC()
             log.Println("starting processing of message batch")
@@ -321,7 +325,7 @@ func main() {
             }()
             //seed expansion
             go func() {
-                expandDB(db, msgBlocks+1)
+                expandDB(db, 2)
                 expansionBlocker <- 1
             }()
             //generate the shares for which seeds were sent to the aux server
@@ -410,7 +414,7 @@ func main() {
             //blind mac verification
             
             //expand the key shares into the individual mac key shares, mask them and the msg shares with part of a beaver triple
-            maskedStuff := mycrypto.GetMaskedStuff(batchSize, msgBlocks+1, myNum, beaversA, beaversB, db, false)
+            maskedStuff := mycrypto.GetMaskedStuff(batchSize, 2, myNum, beaversA, beaversB, db, false)
             
             //everyone distributes shares and then merges them
             maskedShares := broadcastAndReceiveFromAll(maskedStuff, conns, serverNum)
@@ -422,7 +426,7 @@ func main() {
             }
             
             //everyone computes (computed mac - provided tag) shares
-            macDiffShares := mycrypto.BeaverProduct(msgBlocks+1, batchSize, beaversC, mergedMaskedShares, db, leader, false, false)
+            macDiffShares := mycrypto.BeaverProduct(2, batchSize, beaversC, mergedMaskedShares, db, leader, false, false)
             
             //broadcast shares
             finalMacDiffShares := broadcastAndReceiveFromAll(macDiffShares, conns, serverNum)
@@ -531,7 +535,7 @@ func main() {
             }
             
             //expand the key shares into the individual mac key shares, mask them and the msg shares with part of a beaver triple
-            maskedStuff = mycrypto.GetMaskedStuff(batchSize, msgBlocks+1, myNum, beaversATwo, beaversBTwo, db, true)
+            maskedStuff = mycrypto.GetMaskedStuff(batchSize, 2, myNum, beaversATwo, beaversBTwo, db, true)
             
             //everyone distributes shares and then merges them
             maskedShares = broadcastAndReceiveFromAll(maskedStuff, conns, serverNum)
@@ -543,7 +547,7 @@ func main() {
             }
             
             //everyone computes (computed mac - provided tag) shares
-            macDiffShares = mycrypto.BeaverProduct(msgBlocks+1, batchSize, beaversCTwo, mergedMaskedShares, db, leader, true, true)
+            macDiffShares = mycrypto.BeaverProduct(2, batchSize, beaversCTwo, mergedMaskedShares, db, leader, true, true)
                         
             //hash macDiffShares and distribute as a commitment. 
             hashedMacDiffShares := mycrypto.Hash(macDiffShares)
@@ -610,7 +614,7 @@ func main() {
 
                 //log.Println(outputDB);
                 
-                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, msgBlocks*16)
+                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 16)
                 fmt.Printf("blind mac time: %s, average: %s", blindMacElapsedTime, totalBlindMacTime/time.Duration(batchesCompleted))
                 fmt.Printf("shuffle time: %s, average: %s", shuffleElapsedTime, totalShuffleTime/time.Duration(batchesCompleted))
                 fmt.Printf("reveal time: %s, average: %s\n", revealElapsedTime, totalRevealTime/time.Duration(batchesCompleted))

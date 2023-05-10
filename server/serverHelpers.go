@@ -15,12 +15,13 @@ import (
 
 //some utility functions used by the servers
 
-func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, msgBlocks, batchSize int,  pubKeys []*[32]byte) {
+func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  pubKeys []*[32]byte) {
     //client connection receiving phase
     numServers := len(setupConns)
     
     //32 is for mac key share and mac, 16 bytes each
-    shareLength := 32 + 16*msgBlocks
+    // shareLength := 32 + 16*msgBlocks
+    shareLength := 64
     boxedShareLength := (shareLength + box.AnonymousOverhead)
     //generate preliminary permutation
     seed := make([]byte, 16)
@@ -49,7 +50,7 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, msgBlocks, batch
             for msgCount := startI; msgCount < endI; msgCount++ {
                 //handle connections from client, pass on boxes
                 
-                clientTransmission, _ := clientSim(msgCount%26, msgBlocks, pubKeys)
+                clientTransmission, _ := clientSim(msgCount%26, pubKeys)
                 
                 //handle the message sent for this server
                 copy(db[prelimPerm[msgCount]][0:shareLength], clientTransmission[0:shareLength])
@@ -101,14 +102,15 @@ func myClientSim(msgType int, pubKeys []*[32]byte) ([]byte, time.Duration) {
     return msgToSend, elapsedTime
 }
 
-func clientSim(msgType, msgBlocks int, pubKeys []*[32]byte) ([]byte, time.Duration) {
+func clientSim(msgType int, pubKeys []*[32]byte) ([]byte, time.Duration) {
     startTime := time.Now()
     
     numServers := len(pubKeys)
         
     //generate the MACed ciphertext, MAC, and all the keys; secret share
     //look in vendors/mycrypto/crypto.go for details
-    msg := mycrypto.MakeCT(msgBlocks-1, msgType)
+    // msg := mycrypto.MakeCT(msgBlocks-1, msgType)
+    msg := mycrypto.MakeCT(1, msgType)
     mac, keySeeds := mycrypto.WeirdMac(numServers, msg)
     bodyShares := mycrypto.Share(numServers, append(msg, mac...))
         
@@ -135,10 +137,11 @@ func clientSim(msgType, msgBlocks int, pubKeys []*[32]byte) ([]byte, time.Durati
     return msgToSend, elapsedTime
 }
 
-func otherReceivingPhase(db [][]byte, setupConns [][]net.Conn, numServers, msgBlocks, batchSize int, myPubKey, mySecKey *[32]byte, myNum int) {
+func otherReceivingPhase(db [][]byte, setupConns [][]net.Conn, numServers, batchSize int, myPubKey, mySecKey *[32]byte, myNum int) {
 
     //48 is for mac key share, mac, encryption key, 16 bytes each
-    shareLength := 32 + 16*msgBlocks
+    // shareLength := 32 + 16*msgBlocks
+    shareLength := 64
     boxedShareLength := (shareLength + box.AnonymousOverhead)
     numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
     //numThreads = 1
