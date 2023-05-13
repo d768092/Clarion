@@ -12,6 +12,7 @@ import (
     "shufflemessage/mycrypto" 
 )
 
+const msgLen = 16 // Change to 128 later?
 
 //some utility functions used by the servers
 
@@ -19,9 +20,7 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  
     //client connection receiving phase
     numServers := len(setupConns)
     
-    //32 is for mac key share and mac, 16 bytes each
-    // shareLength := 32 + 16*msgBlocks
-    shareLength := 64
+    shareLength := 16
     boxedShareLength := (shareLength + box.AnonymousOverhead)
     //generate preliminary permutation
     seed := make([]byte, 16)
@@ -50,7 +49,7 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  
             for msgCount := startI; msgCount < endI; msgCount++ {
                 //handle connections from client, pass on boxes
                 
-                clientTransmission, _ := clientSim(msgCount%26, pubKeys)
+                clientTransmission, _ := myClientSim(msgCount%26, pubKeys)
                 
                 //handle the message sent for this server
                 copy(db[prelimPerm[msgCount]][0:shareLength], clientTransmission[0:shareLength])
@@ -78,10 +77,8 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  
 
 func myClientSim(msgType int, pubKeys []*[32]byte) ([]byte, time.Duration) {
     startTime := time.Now()
-
     numServers := len(pubKeys)
-
-    msg := mycrypto.MakeCT(10, msgType)
+    msg := mycrypto.MakeMsg(1, msgType)
 
     bodyShares := mycrypto.Share(numServers, msg)
 
@@ -102,46 +99,9 @@ func myClientSim(msgType int, pubKeys []*[32]byte) ([]byte, time.Duration) {
     return msgToSend, elapsedTime
 }
 
-func clientSim(msgType int, pubKeys []*[32]byte) ([]byte, time.Duration) {
-    startTime := time.Now()
-    
-    numServers := len(pubKeys)
-        
-    //generate the MACed ciphertext, MAC, and all the keys; secret share
-    //look in vendors/mycrypto/crypto.go for details
-    // msg := mycrypto.MakeCT(msgBlocks-1, msgType)
-    msg := mycrypto.MakeCT(1, msgType)
-    mac, keySeeds := mycrypto.WeirdMac(numServers, msg)
-    bodyShares := mycrypto.Share(numServers, append(msg, mac...))
-        
-    //box shares with the appropriate key share seeds prepended
-    //"box" sent to leader is actually just sent to the leader without a box
-    msgToSend := append(bodyShares[0], keySeeds[0]...)
-    
-    //log.Printf("Msg length for one share: %d\n", len(msgToSend))
-    //log.Printf("encryption size overhead: %d\n", box.AnonymousOverhead)
-    
-    for i:= 1; i < numServers; i++ {
-        
-        //SealAnonymous appends its output to msgToSend
-        boxedMessage, err := box.SealAnonymous(nil, append(bodyShares[i], keySeeds[i]...), pubKeys[i], rand.Reader)
-        if err != nil {
-            panic(err)
-        }
-        msgToSend = append(msgToSend, boxedMessage...)
-    }
-    
-    
-    elapsedTime := time.Since(startTime)
-    
-    return msgToSend, elapsedTime
-}
-
 func otherReceivingPhase(db [][]byte, setupConns [][]net.Conn, numServers, batchSize int, myPubKey, mySecKey *[32]byte, myNum int) {
 
-    //48 is for mac key share, mac, encryption key, 16 bytes each
-    // shareLength := 32 + 16*msgBlocks
-    shareLength := 64
+    shareLength := 16
     boxedShareLength := (shareLength + box.AnonymousOverhead)
     numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
     //numThreads = 1
@@ -270,47 +230,6 @@ func mergeFlattenedDBs(flatDBs []byte, numServers, dbSize int) []byte {
     return mycrypto.Merge(dbs)
 }
 
-//check all the macs in a merged db
-//and decrypt the messages
-func checkMacsAndDecrypt(mergedDB []byte, numServers, msgBlocks, batchSize int) ([][]byte, bool) {
-    outputDB := make([][]byte, batchSize)
-    rowLen := msgBlocks*32 + 16
-    
-    success := true
-    
-    numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
-    blocker := make(chan int)
-    
-    for t:=0; t < numThreads; t++ {
-        startIndex := t*chunkSize
-        endIndex := (t+1)*chunkSize
-        go func(startI, endI int) {
-            for i:=startI; i < endI; i++ {
-                row := mergedDB[rowLen*i:rowLen*(i+1)]
-                msg := row[:msgBlocks*16]
-                tag := row[msgBlocks*16:(msgBlocks+1)*16]
-                keys := row[(msgBlocks+1)*16:]
-
-                if !mycrypto.CheckMac(msg, tag, keys) {
-                    success = false
-                }
-                
-                //decrypt
-                msg = mycrypto.DecryptCT(msg)
-                
-                outputDB[i] = msg
-            }
-            blocker <- 1
-        }(startIndex, endIndex)
-    }
-    
-    for i:=0; i < numThreads; i++ {
-        <- blocker
-    }
-    
-    return outputDB, success
-}
-
 func broadcastAndReceiveFromAll(msg []byte, conns []net.Conn, myNum int) []byte {
     blocker := make(chan int)
     numServers := len(conns)
@@ -324,7 +243,6 @@ func broadcastAndReceiveFromAll(msg []byte, conns []net.Conn, myNum int) []byte 
             copy(outputLocation, readFromConn(conn, bytesToRead))
             writeToConn(conn, data)
             blocker <- 1
-            return
         }(msg, content[i*contentLenPerServer:(i+1)*contentLenPerServer], conns[i])
     }
     
@@ -335,7 +253,6 @@ func broadcastAndReceiveFromAll(msg []byte, conns []net.Conn, myNum int) []byte 
             writeToConn(conn, data)
             copy(outputLocation, readFromConn(conn, bytesToRead))
             blocker <- 1
-            return
         }(msg, content[i*contentLenPerServer:(i+1)*contentLenPerServer], conns[i])
     }
     
@@ -347,4 +264,13 @@ func broadcastAndReceiveFromAll(msg []byte, conns []net.Conn, myNum int) []byte 
     }
     
     return content
+}
+
+func getProduct(batchSize, serverNum, numServers int, beaversA, beaversB, beaversC []byte, db [][]byte, conns []net.Conn, leader bool) [] byte {
+    maskedStuff := mycrypto.GetMaskedStuff(batchSize, 1, serverNum, beaversA, beaversB, db)
+    maskedShares := broadcastAndReceiveFromAll(maskedStuff, conns, serverNum)
+    mergedMaskedShares := mergeFlattenedDBs(maskedShares, numServers, len(maskedStuff))
+    macDiffShares := mycrypto.BeaverProduct(1, batchSize, beaversC, mergedMaskedShares, db, leader, false)
+    finalMacDiffShares := broadcastAndReceiveFromAll(macDiffShares, conns, serverNum)
+    return finalMacDiffShares
 }

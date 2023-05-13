@@ -1,11 +1,9 @@
 2
-3
+1
 localhost:4330
 localhost:4331
 localhost:4332
 localhost:4333
 localhost:4334
 PARAMS
-100
-1000
 100

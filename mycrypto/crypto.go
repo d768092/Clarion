@@ -1,18 +1,18 @@
 package mycrypto
 
 import (
-    "log"
-    "crypto/rand"
-    "crypto/aes"
-    "crypto/cipher"
-    "crypto/sha256"
-    //"golang.org/x/crypto/nacl/box"
-    //"strings"
-    "bytes"
-    
-    "shufflemessage/modp"
-)
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
+	"log"
 
+	//"golang.org/x/crypto/nacl/box"
+	//"strings"
+	"bytes"
+
+	"shufflemessage/modp"
+)
 
 //return a message
 func MakeMsg(numBlocks, msgType int) []byte {
@@ -26,139 +26,6 @@ func MakeMsg(numBlocks, msgType int) []byte {
     }
     
     return m
-}
-
-//Generates a ciphertext under a random key and returns the ct with key prepended
-func MakeCT(numBlocks, msgType int) []byte {
-    
-    blockSize := 16
-    dataLen := numBlocks * blockSize
-    
-    //make up a message to encrypt, set empty iv
-    m := make([]byte, dataLen)
-    for i := 0; i < dataLen; i++ {
-        m[i] = byte(97 + msgType) //ascii 'a' is 97
-    }
-    zeroIV := make([]byte, blockSize)
-    
-    //generate a random encryption key
-    
-    key := make([]byte, 16)
-    _,err := rand.Read(key)
-    if err != nil {
-        log.Println("couldn't generate key")
-        panic(err)
-    }
-    //log.Println(key)
-    
-    //use the key to encrypt the message
-    c, err := aes.NewCipher(key)
-    if err != nil {
-        log.Println("Couldn't inititate new cipher")
-        panic(err)
-    }
-    ctr := cipher.NewCTR(c, zeroIV)
-    ct := make([]byte, dataLen)
-    ctr.XORKeyStream(ct, m)
-    //ct now holds the encrypted message
-    
-    ct = append(key, ct...)
-    
-    return ct
-}
-
-//decrypt ct where first 16 bytes are the AES key. use zero IV
-func DecryptCT(ct []byte) []byte{
-    
-    plaintext := make([]byte, len(ct) - 16)
-    zeroIV := make([]byte, 16)
-    
-    //log.Println(ct[:16])
-    
-    c, err := aes.NewCipher(ct[:16])
-    if err != nil {
-        log.Println("Couldn't initiate new cipher")
-        panic(err)
-    }
-    ctr := cipher.NewCTR(c, zeroIV)
-    ctr.XORKeyStream(plaintext, ct[16:])
-    
-    return plaintext
-}
-
-//outputs a mac on the msg and a key share seed for each server
-func WeirdMac(numServers int, msg []byte) ([]byte, [][]byte) {
-        
-    //generate key shares
-    keyShareSeeds := make([][]byte, numServers)
-    for i := 0; i < numServers; i++ {
-        keyShareSeeds[i] = make([]byte, 16)
-        _,err := rand.Read(keyShareSeeds[i])
-        if err != nil {
-            log.Println("wasn't able to generate a MAC key share seeds")
-            panic(err)
-        }
-    }
-    
-    //expand seeds to actual key shares using AES in CTR mode as PRG
-    msgLen := len(msg)
-    keyLen := msgLen
-    keyShares := make([][]byte, numServers)
-    // if messagingMode {//just use the seed as the actual share
-    //     for i:= 0; i < numServers; i++ {
-    //         keyShares[i] = keyShareSeeds[i]
-    //     }
-    //     keyLen = 16
-    // } 
-    for i:= 0; i < numServers; i++ {
-        keyShares[i] = AesPRG(msgLen, keyShareSeeds[i])
-    }
-    
-    
-    //merge the shares
-    var temp modp.Element
-    keys := make([]byte, keyLen)
-    for i:=0; i < keyLen/16; i++ {
-        var keyPiece modp.Element
-        for j:=0; j < numServers; j++ {
-            temp.SetBytes(keyShares[j][i*16:(i+1)*16])
-            keyPiece.Add(&keyPiece, &temp)
-        }
-        copy(keys[i*16:(i+1)*16], keyPiece.Bytes())
-    }
-    
-    return ComputeMac(msg, keys), keyShareSeeds
-}
-
-//compute MAC in the clear
-func ComputeMac(msg []byte, keys []byte) []byte {
-    
-    msgLen := len(msg)
-    
-    msgBlocks := msgLen / 16
-    if msgLen % 16 != 0 {
-        panic("msgLen isn't a multiple of block size. Something has gone wrong :(")
-    }
-    if msgLen != len(keys)  {
-        panic("incorrect key vector length. Something has gone wrong :(")
-    }
-    
-    var mac, key, msgPiece, product modp.Element
-    for i:=0; i < msgBlocks; i++ {
-        msgPiece.SetBytes(msg[16*i:16*(i+1)])
-        
-        key.SetBytes(keys[16*i:16*(i+1)])
-        product.Mul(&key, &msgPiece)
-        mac.Add(&mac, &product)
-    }
-    
-    return mac.Bytes()
-}
-
-//check mac in the clear
-func CheckMac(msg, tag []byte, keys []byte) bool {
- 
-    return bytes.Equal(ComputeMac(msg, keys), tag)
 }
 
 //expand a seed using aes in CTR mode
@@ -483,7 +350,7 @@ func GenBeavers(numBeavers, seedIndex int, seeds [][]byte) [][]byte {
     return Share(numServers, beaversC)
 }
 
-func TestGenBeavers() bool {
+/*func TestGenBeavers() bool {
     numBeavers := 3
     numServers := 2
     
@@ -521,7 +388,7 @@ func TestGenBeavers() bool {
     }
     
     return true
-}
+}*/
 
 //generate permutations and share translations
 //returns:
@@ -800,12 +667,9 @@ func TestCheckSharesAreZero() bool {
     return CheckSharesAreZero(batchSize, numServers, flatShares)
 }
 
-func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte,  db [][]byte, leader, aggregate, partTwo bool) []byte {
+func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte,  db [][]byte, leader, aggregate bool) []byte {
 
     keyBlocks := msgBlocks
-    if partTwo {
-        keyBlocks = 1
-    }
     
     //locally compute product shares and share of mac, subtract from share of given tag
     macDiffShares := make([]byte, 0)
@@ -827,14 +691,11 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
                 var runningSum, beaverProductShare modp.Element
                 for j:=0; j < keyBlocks; j++ {
                     //do a beaver multiplication here
-                    keyShareIndex := 16*(msgBlocks+1) + 16*j
+                    keyShareIndex := 16*msgBlocks + 16*j
                     myKeyShare.SetBytes(db[i][keyShareIndex:keyShareIndex+16])
                     myMsgShare.SetBytes(db[i][16*j:16*(j+1)])
                     keyIndex := i*16*keyBlocks + 16*j
                     msgIndex := len(mergedMaskedShares)/2 + keyIndex
-                    if partTwo {
-                        msgIndex = 16*batchSize + i*16*msgBlocks + 16*j
-                    }
                     maskedKey.SetBytes(mergedMaskedShares[keyIndex:keyIndex+16])
                     maskedMsg.SetBytes(mergedMaskedShares[msgIndex:msgIndex+16])
                     
@@ -854,18 +715,6 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
                     runningSum.Add(&runningSum, &beaverProductShare)
                 }
                 
-                //for second time, most of this is done in clear
-                if partTwo {
-                    var ctElt modp.Element
-                    for j:=1; j < msgBlocks; j++ {
-                        ctIndex := 16*batchSize + 16*i*msgBlocks + j*16
-                        keyShareIndex := 16*(msgBlocks+1) + 16*j
-                        myKeyShare.SetBytes(db[i][keyShareIndex:keyShareIndex+16])
-                        ctElt.SetBytes(mergedMaskedShares[ctIndex:ctIndex+16])
-                        ctElt.Mul(&ctElt, &myKeyShare)
-                        runningSum.Add(&runningSum, &ctElt)
-                    }
-                }
                 givenTag.SetBytes(db[i][msgBlocks*16:msgBlocks*16 + 16])
                 runningSum.Sub(&runningSum, &givenTag)
                 
@@ -890,14 +739,12 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
 }
 
 //get all the masked stuff together for the blind mac verification
-func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, db [][]byte, partTwo bool) []byte {
+func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, db [][]byte) []byte {
     
     keyBlocks := msgBlocks
     
     maskedMsgShares := make([]byte, 16*batchSize*keyBlocks)
-    if partTwo {
-        keyBlocks = 1
-    }
+    
     maskedExpandedKeyShares := make([]byte, 16*batchSize*keyBlocks)
     
     numThreads, chunkSize := PickNumThreads(batchSize)
@@ -911,8 +758,8 @@ func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, 
             for i:=startI; i < endI; i++ {
                 for j:=0; j < keyBlocks; j++ {
                     //mask the key component
-                    keyShareIndex := 16*(msgBlocks+1) + 16*j
-                    value.SetBytes(db[i][keyShareIndex:keyShareIndex + 16])
+                    keyShareIndex := 16*msgBlocks + 16*j
+                    value.SetBytes(db[i][keyShareIndex:keyShareIndex+16])
                     beaverIndex := 16*keyBlocks*i + 16*j
                     mask.SetBytes(beaversA[beaverIndex:beaverIndex+16])
                     value.Sub(&value, &mask)
@@ -923,16 +770,7 @@ func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, 
                     value.SetBytes(db[i][16*j:16*(j+1)])
                     mask.SetBytes(beaversB[beaverIndex:beaverIndex+16])
                     value.Sub(&value,&mask)
-                    if partTwo {
-                        index = 16*msgBlocks*i
-                    }
                     copy(maskedMsgShares[index:index+16], value.Bytes())
-                }
-                
-                if partTwo { //the rest of the masked share is actually the unmasked CT
-                    index :=16*msgBlocks*i+16
-                    copy(maskedMsgShares[index:index+16*(msgBlocks-1)], 
-                         db[i][16:16*msgBlocks])
                 }
             }
             blocker <- 1
@@ -946,6 +784,3 @@ func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, 
     maskedStuff := append(maskedExpandedKeyShares, maskedMsgShares...)
     return maskedStuff
 }
-
-
-
