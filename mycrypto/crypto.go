@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"log"
+    "math/big"
 
 	//"golang.org/x/crypto/nacl/box"
 	//"strings"
@@ -14,19 +15,197 @@ import (
 	"shufflemessage/modp"
 )
 
+const blockSize = 16 // Change to 128 later?
+
+// find the group generator where
+// 1) g^((p-1)/2) = 1 (mod p)
+// 2) the discrete log between them are non-trivial
+// g1, g2, g3 should be modified later
+
+const g1 = 31
+const g2 = 32
+const g3 = 33
+
+var g1Element = modp.Element{
+    g1,
+    0,
+}
+
+var g2Element = modp.Element{
+    g2,
+    0,
+}
+
+var g3Element = modp.Element{
+    g3,
+    0,
+}
+
+var q, _ = new(big.Int).SetString("170141183460469231731687303715884105648", 10)
+
+// return id, (s1, s2)
+func GenerateID() ([]byte, []byte) {
+    secret := make([]byte, blockSize * 2)
+
+    s1, err := rand.Int(rand.Reader, q)
+    if err != nil {
+        log.Println("Couldn't generate secret")
+        panic(err)
+    }
+    s2, err := rand.Int(rand.Reader, q)
+    if err != nil {
+        log.Println("Couldn't generate secret")
+        panic(err)
+    }
+    var id, temp modp.Element
+    id.Exp(g1Element, s1)
+    temp.Exp(g2Element, s2)
+    id.Mul(&id, &temp)
+
+    copy(secret[:blockSize], s1.Bytes())
+    copy(secret[blockSize:blockSize * 2], s2.Bytes())
+    return id.Bytes(), secret
+}
+
 //return a message
-func MakeMsg(numBlocks, msgType int) []byte {
-    blockSize := 16
-    dataLen := numBlocks * blockSize
-    
-    //make up a message to encrypt, set empty iv
-    m := make([]byte, dataLen)
-    for i := 0; i < dataLen; i++ {
+func MakeMsg(msgType int) []byte {
+    m := make([]byte, blockSize)
+    for i := 0; i < blockSize; i++ {
         m[i] = byte(97 + msgType) //ascii 'a' is 97
     }
     
     return m
 }
+
+//return a message and the backdoor
+func MakeFullMsg(msgType int, secret []byte) []byte {
+    ret := make([]byte, blockSize * 2)
+    
+    m := make([]byte, blockSize)
+    for i := 0; i < blockSize; i++ {
+        m[i] = byte(97 + msgType) //ascii 'a' is 97
+    }
+
+    // generate the backdoor
+    s1 := new(big.Int).SetBytes(secret[:blockSize])
+    s2 := new(big.Int).SetBytes(secret[blockSize:])
+    var mElement, M, temp modp.Element
+    mElement.SetBytes(m)
+    M.Exp(mElement, s1)
+    temp.Exp(g3Element, s2)
+    M.Mul(&M, &temp)
+
+    copy(ret[:blockSize], m)
+    copy(ret[blockSize:blockSize*2], M.Bytes())
+    
+    return ret
+}
+
+
+// return the proof: bshare, (a, z1, z2)
+func MakeProof(msgShares [][]byte, msg, id, secret []byte) ([][] byte, []byte) {
+    numServers := len(msgShares)
+
+    // return (a, z1, z2)
+    ret := make([]byte, blockSize * 3)
+
+    // generate the secrets and the backdoor
+    r1, err := rand.Int(rand.Reader, q)
+    if err != nil {
+        log.Println("Couldn't generate secret")
+        panic(err)
+    }
+    r2, err := rand.Int(rand.Reader, q)
+    if err != nil {
+        log.Println("Couldn't generate secret")
+        panic(err)
+    }
+
+    var a, b, mElement, temp modp.Element
+    a.Exp(g1Element, r1)
+    temp.Exp(g2Element, r2)
+    a.Mul(&a, &temp)
+    mElement.SetBytes(msg[:blockSize])
+    b.Exp(mElement, r1)
+    temp.Exp(g3Element, r2)
+    b.Mul(&b, &temp)
+    bShares := Share(numServers, b.Bytes())
+
+    coms := make([]byte, numServers*32)
+    for i := 0; i < numServers; i++ {
+        data := msgShares[i]
+        data = append(data, bShares[i]...)
+        data = append(data, id...)
+        data = append(data, a.Bytes()...)
+        startIndex := 32 * i
+        endIndex := 32 * (i+1)
+        copy(coms[startIndex:endIndex], comHash(data))
+    }
+    hash := Hash(coms)
+    ch := new(big.Int).SetBytes(hash)
+    ch.Mod(ch, q)
+    // The way of generating ch should be changes if blockSize > 32
+
+    s1 := new(big.Int).SetBytes(secret[:blockSize])
+    s2 := new(big.Int).SetBytes(secret[blockSize:])
+    var z1, z2 big.Int
+    z1.Mul(ch, s1)
+    z1.Add(&z1, r1)
+    z2.Mul(ch, s2)
+    z2.Add(&z2, r2)
+
+    copy(ret[:blockSize], a.Bytes())
+    copy(ret[blockSize:blockSize*2], z1.Bytes())
+    copy(ret[blockSize*2:blockSize*3], z2.Bytes())
+
+    return bShares, ret
+}
+
+// data should be m_i | M_i | b | id | a
+func comHash(data []byte) []byte {
+    hash := sha256.Sum256(data)
+    return hash[:]
+}
+
+//return a message, the backdoor, and the proof
+/*func MakeFullMsgAndProof(msgType int) []byte {
+    blockSize := 16
+    ret := make([]byte, blockSize * 7)
+
+    // generate the secrets and id
+    s1, err := rand.Int(rand.Reader, q)
+    if err != nil {
+        log.Println("Couldn't generate secret")
+        panic(err)
+    }
+    s2, err := rand.Int(rand.Reader, q)
+    if err != nil {
+        log.Println("Couldn't generate secret")
+        panic(err)
+    }
+    var id, temp modp.Element
+    id.Exp(g1Element, s1)
+    temp.Exp(g2Element, s2)
+    id.Mul(&id, &temp)
+    
+    //make up a message to encrypt, set empty iv
+    m := make([]byte, blockSize)
+    for i := 0; i < blockSize; i++ {
+        m[i] = byte(97 + msgType) //ascii 'a' is 97
+    }
+
+    var mElement, M modp.Element
+    mElement.SetBytes(m)
+    M.Exp(mElement, s1)
+    temp.Exp(g3Element, s2)
+    M.Mul(&M, &temp)
+    
+    copy(ret[:blockSize], m)
+    copy(ret[blockSize:blockSize*2], M.Bytes())
+    copy(ret[blockSize*2:blockSize*3], id.Bytes())
+    
+    return ret
+}*/
 
 //expand a seed using aes in CTR mode
 func AesPRG(msgLen int, seed []byte) []byte {
@@ -67,20 +246,20 @@ func AesPRG(msgLen int, seed []byte) []byte {
 }
 
 //expand a key seed share to a vector of zeros with the seed in the correct place
-func ExpandKeyShares(myServerNum, numServers int, keySeedShare []byte) []byte {
+/*func ExpandKeyShares(myServerNum, numServers int, keySeedShare []byte) []byte {
     expansion := make([]byte, 16*numServers)
     copy(expansion[16*myServerNum:16*(myServerNum+1)], keySeedShare)
     return expansion
-}
+}*/
 
 //splits a message into additive shares mod a prime
 func Share(numShares int, msg []byte) [][]byte {
     shares := make([][]byte, numShares)
     shares[0] = make([]byte, len(msg))
     
-    numBlocks := len(msg)/16
-    if len(msg) % 16 != 0 {
-        panic("message being shared has length not a multiple of 16")
+    numBlocks := len(msg)/blockSize
+    if len(msg) % blockSize != 0 {
+        panic("message being shared has length not a multiple of blockSize")
     }
         
     var lastShare []*modp.Element
@@ -88,7 +267,7 @@ func Share(numShares int, msg []byte) [][]byte {
     //make lastShare hold msg in Element form
     for i:= 0; i < numBlocks; i++ {
         var temp modp.Element
-        lastShare = append(lastShare, temp.SetBytes(msg[16*i:16*(i+1)]))
+        lastShare = append(lastShare, temp.SetBytes(msg[blockSize*i:blockSize*(i+1)]))
     }
     
     
@@ -102,17 +281,17 @@ func Share(numShares int, msg []byte) [][]byte {
             panic(err)
         }
         
-        //change every 16-byte block into an Element
+        //change every block into an Element
         //subtract from the last share
         for j:=0; j < numBlocks; j++ {
             var temp modp.Element
-            lastShare[j].Sub(lastShare[j], temp.SetBytes(shares[i][16*j:16*(j+1)]))
+            lastShare[j].Sub(lastShare[j], temp.SetBytes(shares[i][blockSize*j:blockSize*(j+1)]))
         }
     }
     
     //set the zeroth share to be lastShare in byte form
     for i:=0; i < numBlocks; i++ {
-        copy(shares[0][16*i:16*(i+1)], lastShare[i].Bytes())
+        copy(shares[0][blockSize*i:blockSize*(i+1)], lastShare[i].Bytes())
     }
     
     return shares
@@ -122,9 +301,9 @@ func Share(numShares int, msg []byte) [][]byte {
 func Merge(shares [][]byte) []byte{
 
     numShares := len(shares)
-    numBlocks := len(shares[0])/16
-    if len(shares[0]) % 16 != 0 {
-        panic("messages being merged have length not a multiple of 16")
+    numBlocks := len(shares[0])/blockSize
+    if len(shares[0]) % blockSize != 0 {
+        panic("messages being merged have length not a multiple of blockSize")
     }
     
     var elements []*modp.Element
@@ -132,7 +311,7 @@ func Merge(shares [][]byte) []byte{
     //make array of elements that holds the first share
     for j:=0; j < numBlocks; j++ {
         var temp modp.Element
-        elements = append(elements, temp.SetBytes(shares[0][16*j:16*(j+1)]))
+        elements = append(elements, temp.SetBytes(shares[0][blockSize*j:blockSize*(j+1)]))
     }
     
     numThreads, chunkSize := PickNumThreads(numBlocks)
@@ -150,7 +329,7 @@ func Merge(shares [][]byte) []byte{
             go func(startJ, endJ int) {
                 var temp modp.Element
                 for j:=startJ; j < endJ; j++ {
-                    temp.SetBytes(shares[i][16*j:16*(j+1)])
+                    temp.SetBytes(shares[i][blockSize*j:blockSize*(j+1)])
                     elements[j].Add(elements[j], &temp)
                 }
                 blocker <- 1

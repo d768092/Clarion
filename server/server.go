@@ -188,13 +188,13 @@ func main() {
         log.Println("\nClient performance test")
         var totalClientTime time.Duration
         for i:= 0; i < 10; i++ {
-            _, clientTime:= myClientSim(batchSize, pubKeys)
+            _, clientTime:= myClientSim(batchSize, pubKeys, true)
             totalClientTime += clientTime
         }
         fmt.Printf("Client average compute time: %s\n\n", totalClientTime/time.Duration(10))
         
         //some relevant values
-        blocksPerRow := 1 // To be modified later
+        blocksPerRow := 2 // To be modified later
         numBeavers := batchSize * 2
         
         dbSize := blocksPerRow*batchSize*16
