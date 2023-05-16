@@ -483,7 +483,7 @@ func main() {
             //merge DBs
             mergedDB := mergeFlattenedDBs(flatDBs, numServers, len(flatDB))
             
-            // _ = mergedDB
+            _ = mergedDB
             /*The servers don't actually need to do this last step, the clients can do it 
             themselves, both when it's used for broadcast and messaging*/
             
@@ -500,7 +500,7 @@ func main() {
             //only the leader outputs the stats on the last round
             if leader && testCount == 4{
 
-                log.Println(mergedDB)
+                // log.Println(mergedDB)
                 
                 fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 127)
                 fmt.Printf("shuffle time: %s, average: %s\n", shuffleElapsedTime, totalShuffleTime/time.Duration(batchesCompleted))

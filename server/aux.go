@@ -76,7 +76,7 @@ func aux (numServers int, batchSizeParams []int, addrs []string) {
         
         // blocksPerRow :=  2*(msgBlocks+1) + 1
         // numBeavers := batchSize * (msgBlocks+1)
-        blocksPerRow :=  5
+        blocksPerRow :=  2
         numBeavers := batchSize * 2
         
         totalBatches := 0

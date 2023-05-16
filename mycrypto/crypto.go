@@ -315,6 +315,7 @@ func Merge(shares [][]byte) []byte{
 }
 
 func PickNumThreads(size int) (int,int) {
+    // return 1, size
     numThreads := 16
     if size % 16 != 0 {
         //log.Println("using batchSize divisible by 16 will give better performance")
