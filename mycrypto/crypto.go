@@ -6,7 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"log"
-    "math/big"
+	"math/big"
 
 	//"golang.org/x/crypto/nacl/box"
 	//"strings"
@@ -15,16 +15,16 @@ import (
 	"shufflemessage/modp"
 )
 
-const blockSize = 16 // Change to 128 later?
+const blockSize = 128
 
 // find the group generator where
 // 1) g^((p-1)/2) = 1 (mod p)
 // 2) the discrete log between them are non-trivial
 // g1, g2, g3 should be modified later
 
-const g1 = 31
-const g2 = 32
-const g3 = 33
+const g1 = 2
+const g2 = 3
+const g3 = 5
 
 var g1Element = modp.Element{
     g1,
@@ -41,7 +41,11 @@ var g3Element = modp.Element{
     0,
 }
 
-var q, _ = new(big.Int).SetString("170141183460469231731687303715884105648", 10)
+// p = 2**1017 + 422487
+// q = 2**1016 + 211243
+// accept messages up to 1016 bits (127 bytes)
+
+var q, _ = new(big.Int).SetString("702223880805592151456759840151962786569522257399338504974336254522393264865238137237142489540654437582500444843247630303354647534431314931612685275935445798350655833690880801860555545317367555154113605281582053784524026102900245630757473088050106395169337932361665227499793929447186391815763110662594836779", 10)
 
 // return id, (s1, s2)
 func GenerateID() ([]byte, []byte) {
@@ -70,7 +74,7 @@ func GenerateID() ([]byte, []byte) {
 //return a message
 func MakeMsg(msgType int) []byte {
     m := make([]byte, blockSize)
-    for i := 0; i < blockSize; i++ {
+    for i := 1; i < blockSize; i++ {
         m[i] = byte(97 + msgType) //ascii 'a' is 97
     }
     
@@ -82,7 +86,7 @@ func MakeFullMsg(msgType int, secret []byte) []byte {
     ret := make([]byte, blockSize * 2)
     
     m := make([]byte, blockSize)
-    for i := 0; i < blockSize; i++ {
+    for i := 1; i < blockSize; i++ {
         m[i] = byte(97 + msgType) //ascii 'a' is 97
     }
 
@@ -142,7 +146,7 @@ func MakeProof(msgShares [][]byte, msg, id, secret []byte) ([][] byte, []byte) {
         copy(coms[startIndex:endIndex], comHash(data))
     }
     hash := Hash(coms)
-    ch := new(big.Int).SetBytes(hash)
+    ch := new(big.Int).SetBytes(AesPRG(blockSize, hash))
     ch.Mod(ch, q)
     // The way of generating ch should be changes if blockSize > 32
 
@@ -166,46 +170,6 @@ func comHash(data []byte) []byte {
     hash := sha256.Sum256(data)
     return hash[:]
 }
-
-//return a message, the backdoor, and the proof
-/*func MakeFullMsgAndProof(msgType int) []byte {
-    blockSize := 16
-    ret := make([]byte, blockSize * 7)
-
-    // generate the secrets and id
-    s1, err := rand.Int(rand.Reader, q)
-    if err != nil {
-        log.Println("Couldn't generate secret")
-        panic(err)
-    }
-    s2, err := rand.Int(rand.Reader, q)
-    if err != nil {
-        log.Println("Couldn't generate secret")
-        panic(err)
-    }
-    var id, temp modp.Element
-    id.Exp(g1Element, s1)
-    temp.Exp(g2Element, s2)
-    id.Mul(&id, &temp)
-    
-    //make up a message to encrypt, set empty iv
-    m := make([]byte, blockSize)
-    for i := 0; i < blockSize; i++ {
-        m[i] = byte(97 + msgType) //ascii 'a' is 97
-    }
-
-    var mElement, M modp.Element
-    mElement.SetBytes(m)
-    M.Exp(mElement, s1)
-    temp.Exp(g3Element, s2)
-    M.Mul(&M, &temp)
-    
-    copy(ret[:blockSize], m)
-    copy(ret[blockSize:blockSize*2], M.Bytes())
-    copy(ret[blockSize*2:blockSize*3], id.Bytes())
-    
-    return ret
-}*/
 
 //expand a seed using aes in CTR mode
 func AesPRG(msgLen int, seed []byte) []byte {
@@ -371,7 +335,7 @@ func PickNumThreads(size int) (int,int) {
 }
 
 func AddOrSub(a, b []byte, add bool) {
-    numBlocks := len(a)/16
+    numBlocks := len(a)/blockSize
     
     numThreads,chunkSize := PickNumThreads(numBlocks)
     
@@ -383,8 +347,8 @@ func AddOrSub(a, b []byte, add bool) {
         go func(startI, endI int) {
             var eltA, eltB modp.Element
             for i :=startI; i < endI; i++ {
-                eltA.SetBytes(a[16*i:16*(i+1)])
-                eltB.SetBytes(b[16*i:16*(i+1)])
+                eltA.SetBytes(a[blockSize*i:blockSize*(i+1)])
+                eltB.SetBytes(b[blockSize*i:blockSize*(i+1)])
                 
                 if add {
                     eltA.Add(&eltA, &eltB)
@@ -392,7 +356,7 @@ func AddOrSub(a, b []byte, add bool) {
                     eltA.Sub(&eltA, &eltB)
                 }
                 
-                copy(a[16*i:16*(i+1)], eltA.Bytes())
+                copy(a[blockSize*i:blockSize*(i+1)], eltA.Bytes())
             }
             blocker <- 1
         }(startIndex, endIndex)
@@ -405,7 +369,7 @@ func AddOrSub(a, b []byte, add bool) {
 
 //we often do 2 add/subtract ops in a row. This should save some format converting
 func DoubleAddOrSub(a, b, c []byte, add1, add2 bool) {
-    numBlocks := len(a)/16
+    numBlocks := len(a)/blockSize
     
     numThreads,chunkSize := PickNumThreads(numBlocks)
     
@@ -417,9 +381,9 @@ func DoubleAddOrSub(a, b, c []byte, add1, add2 bool) {
         go func(startI, endI int) {
             var eltA, eltB, eltC modp.Element
             for i :=startI; i < endI; i++ {
-                eltA.SetBytes(a[16*i:16*(i+1)])
-                eltB.SetBytes(b[16*i:16*(i+1)])
-                eltC.SetBytes(c[16*i:16*(i+1)])
+                eltA.SetBytes(a[blockSize*i:blockSize*(i+1)])
+                eltB.SetBytes(b[blockSize*i:blockSize*(i+1)])
+                eltC.SetBytes(c[blockSize*i:blockSize*(i+1)])
                 
                 if add1 {
                     eltA.Add(&eltA, &eltB)
@@ -433,7 +397,7 @@ func DoubleAddOrSub(a, b, c []byte, add1, add2 bool) {
                     eltA.Sub(&eltA, &eltC)
                 }
                 
-                copy(a[16*i:16*(i+1)], eltA.Bytes())
+                copy(a[blockSize*i:blockSize*(i+1)], eltA.Bytes())
             }
             blocker <- 1
         }(startIndex, endIndex)
@@ -476,7 +440,7 @@ func intToByte(myInt int) (retBytes []byte){
 func GenBeavers(numBeavers, seedIndex int, seeds [][]byte) [][]byte {
     
     numServers := len(seeds)
-    beaversC := make([]byte, numBeavers*16)
+    beaversC := make([]byte, numBeavers*blockSize)
     beaversA := make([][]byte, numServers)
     beaversB := make([][]byte, numServers)
 
@@ -487,11 +451,11 @@ func GenBeavers(numBeavers, seedIndex int, seeds [][]byte) [][]byte {
     //expand a and b shares
     for i:=0; i < numServers; i++ {
         go func(index int) {
-            beaversA[index] = AesPRG(16*numBeavers, seeds[index][seedIndex:seedIndex+16])
+            beaversA[index] = AesPRG(blockSize*numBeavers, seeds[index][seedIndex:seedIndex+16])
             blocker <- 1
         }(i)
         go func(index int) {
-            beaversB[index] = AesPRG(16*numBeavers, seeds[index][seedIndex+16:seedIndex+32])
+            beaversB[index] = AesPRG(blockSize*numBeavers, seeds[index][seedIndex+16:seedIndex+32])
             blocker <- 1
         }(i)
     }
@@ -512,10 +476,10 @@ func GenBeavers(numBeavers, seedIndex int, seeds [][]byte) [][]byte {
             //generate triples a,b,c s.t. a*b=c
             var eltA, eltB, eltC modp.Element
             for i:= startI; i < endI; i++ {
-                eltA.SetBytes(beaversAMerged[i*16:(i+1)*16])
-                eltB.SetBytes(beaversBMerged[i*16:(i+1)*16])
+                eltA.SetBytes(beaversAMerged[i*blockSize:(i+1)*blockSize])
+                eltB.SetBytes(beaversBMerged[i*blockSize:(i+1)*blockSize])
                 eltC.Mul(&eltA, &eltB)
-                copy(beaversC[16*i:16*(i+1)], eltC.Bytes())
+                copy(beaversC[blockSize*i:blockSize*(i+1)], eltC.Bytes())
             }
             blocker <- 1
         }(startIndex, endIndex)
@@ -586,7 +550,7 @@ func GenShareTrans(batchSize, blocksPerRow int, seeds [][]byte) []byte {
     bFinal := make([][]byte, numServers)
 
     //length of db
-    dbSize := batchSize*blocksPerRow*16
+    dbSize := batchSize*blocksPerRow*blockSize
     
     blocker := make(chan int)
     
@@ -738,37 +702,6 @@ func Hash(flatDB []byte) []byte {
     return hash[:]
 }
 
-//ended up not helping, so I won't use this
-//hash only through the first message block of each row
-func HashOnlyBeginning(flatDB []byte, batchSize, msgBlocks, blocksPerRow int) []byte {
-    numThreads, chunkSize := PickNumThreads(batchSize)
-    subHashes := make([]byte, numThreads*32)
-    blocker := make(chan int)
-    
-    for i:=0; i < numThreads; i++ {
-        startIndex := i*chunkSize
-        endIndex := (i+1)*chunkSize
-        go func(index, start, end int) {
-            partLen := (blocksPerRow - msgBlocks)*16
-            partsToHash := make([]byte, chunkSize*partLen)
-            for j:=0; j < chunkSize; j++ {
-                dbIndex := start*blocksPerRow*16 + j*blocksPerRow*16
-                copy(partsToHash[j*partLen:(j+1)*partLen], flatDB[dbIndex:dbIndex+partLen])
-            }
-            subHash := sha256.Sum256(partsToHash)
-            copy(subHashes[index*32:(index+1)*32], subHash[:])
-            blocker <- 1
-        }(i, startIndex, endIndex)
-    }
-    
-    for i:=0; i < numThreads; i++ {
-        <- blocker
-    }
-    
-    hash := sha256.Sum256(subHashes)
-    return hash[:]
-}
-
 //check hashes of many flat DBs
 func CheckHashes(hashes, dbs []byte, dbLen, myNum int) bool {
     
@@ -809,10 +742,10 @@ func CheckSharesAreZero(batchSize, numServers int, shares []byte) bool {
             var hopefullyZero, anotherShare modp.Element
             innerRes := true
             for i:=startI; i < endI; i++ {
-                hopefullyZero.SetBytes(shares[16*i:16*(i+1)])
+                hopefullyZero.SetBytes(shares[blockSize*i:blockSize*(i+1)])
                 for j:=1; j < numServers; j++ {
-                    index := j*16*batchSize + 16*i
-                    anotherShare.SetBytes(shares[index:index+16])
+                    index := j*blockSize*batchSize + blockSize*i
+                    anotherShare.SetBytes(shares[index:index+blockSize])
                     hopefullyZero.Add(&anotherShare, &hopefullyZero)
                 }
                 if !hopefullyZero.IsZero() {
@@ -855,9 +788,9 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
     blocker := make(chan int)
     numThreads, chunkSize := PickNumThreads(batchSize)
     if aggregate {
-        macDiffShares = make([]byte, 16*numThreads)
+        macDiffShares = make([]byte, blockSize*numThreads)
     } else {
-        macDiffShares = make([]byte, 16*batchSize)
+        macDiffShares = make([]byte, blockSize*batchSize)
     }
     
     for t:=0; t < numThreads; t++ {
@@ -870,13 +803,13 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
                 var runningSum, beaverProductShare modp.Element
                 for j:=0; j < keyBlocks; j++ {
                     //do a beaver multiplication here
-                    keyShareIndex := 16*msgBlocks + 16*j
-                    myKeyShare.SetBytes(db[i][keyShareIndex:keyShareIndex+16])
-                    myMsgShare.SetBytes(db[i][16*j:16*(j+1)])
-                    keyIndex := i*16*keyBlocks + 16*j
+                    keyShareIndex := blockSize*msgBlocks + blockSize*j
+                    myKeyShare.SetBytes(db[i][keyShareIndex:keyShareIndex+blockSize])
+                    myMsgShare.SetBytes(db[i][blockSize*j:blockSize*(j+1)])
+                    keyIndex := i*blockSize*keyBlocks + blockSize*j
                     msgIndex := len(mergedMaskedShares)/2 + keyIndex
-                    maskedKey.SetBytes(mergedMaskedShares[keyIndex:keyIndex+16])
-                    maskedMsg.SetBytes(mergedMaskedShares[msgIndex:msgIndex+16])
+                    maskedKey.SetBytes(mergedMaskedShares[keyIndex:keyIndex+blockSize])
+                    maskedMsg.SetBytes(mergedMaskedShares[msgIndex:msgIndex+blockSize])
                     
                     if leader {
                         beaverProductShare.Mul(&maskedKey, &maskedMsg)
@@ -887,24 +820,24 @@ func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares []byte
                     maskedMsg.Mul(&maskedMsg, &myKeyShare) //this now holds a product, not a masked msg
                     beaverProductShare.Sub(&maskedKey, &beaverProductShare)
                     beaverProductShare.Add(&beaverProductShare, &maskedMsg)
-                    beaverIndex := 16*keyBlocks*i + 16*j
-                    temp.SetBytes(beaversC[beaverIndex:beaverIndex+16])
+                    beaverIndex := blockSize*keyBlocks*i + blockSize*j
+                    temp.SetBytes(beaversC[beaverIndex:beaverIndex+blockSize])
                     beaverProductShare.Add(&beaverProductShare, &temp)
                     
                     runningSum.Add(&runningSum, &beaverProductShare)
                 }
                 
-                givenTag.SetBytes(db[i][msgBlocks*16:msgBlocks*16 + 16])
+                givenTag.SetBytes(db[i][msgBlocks*blockSize:msgBlocks*blockSize + blockSize])
                 runningSum.Sub(&runningSum, &givenTag)
                 
                 if aggregate {
                     aggregateRunningSum.Add(&aggregateRunningSum, &runningSum)
                 } else {
-                    copy(macDiffShares[16*i:16*(i+1)], runningSum.Bytes())
+                    copy(macDiffShares[blockSize*i:blockSize*(i+1)], runningSum.Bytes())
                 }
             }
             if aggregate {
-                copy(macDiffShares[16*threadIndex:16*(threadIndex+1)], aggregateRunningSum.Bytes())
+                copy(macDiffShares[blockSize*threadIndex:blockSize*(threadIndex+1)], aggregateRunningSum.Bytes())
             }
             blocker <- 1
         }(startIndex, endIndex, t)
@@ -922,9 +855,9 @@ func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, 
     
     keyBlocks := msgBlocks
     
-    maskedMsgShares := make([]byte, 16*batchSize*keyBlocks)
+    maskedMsgShares := make([]byte, blockSize*batchSize*keyBlocks)
     
-    maskedExpandedKeyShares := make([]byte, 16*batchSize*keyBlocks)
+    maskedExpandedKeyShares := make([]byte, blockSize*batchSize*keyBlocks)
     
     numThreads, chunkSize := PickNumThreads(batchSize)
     blocker := make(chan int)
@@ -937,19 +870,19 @@ func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB []byte, 
             for i:=startI; i < endI; i++ {
                 for j:=0; j < keyBlocks; j++ {
                     //mask the key component
-                    keyShareIndex := 16*msgBlocks + 16*j
-                    value.SetBytes(db[i][keyShareIndex:keyShareIndex+16])
-                    beaverIndex := 16*keyBlocks*i + 16*j
-                    mask.SetBytes(beaversA[beaverIndex:beaverIndex+16])
+                    keyShareIndex := blockSize*msgBlocks + blockSize*j
+                    value.SetBytes(db[i][keyShareIndex:keyShareIndex+blockSize])
+                    beaverIndex := blockSize*keyBlocks*i + blockSize*j
+                    mask.SetBytes(beaversA[beaverIndex:beaverIndex+blockSize])
                     value.Sub(&value, &mask)
-                    index := 16*keyBlocks*i + 16*j
-                    copy(maskedExpandedKeyShares[index:index+16], value.Bytes())
+                    index := blockSize*keyBlocks*i + blockSize*j
+                    copy(maskedExpandedKeyShares[index:index+blockSize], value.Bytes())
                     
                     //mask the message component
-                    value.SetBytes(db[i][16*j:16*(j+1)])
-                    mask.SetBytes(beaversB[beaverIndex:beaverIndex+16])
+                    value.SetBytes(db[i][blockSize*j:blockSize*(j+1)])
+                    mask.SetBytes(beaversB[beaverIndex:beaverIndex+blockSize])
                     value.Sub(&value,&mask)
-                    copy(maskedMsgShares[index:index+16], value.Bytes())
+                    copy(maskedMsgShares[index:index+blockSize], value.Bytes())
                 }
             }
             blocker <- 1

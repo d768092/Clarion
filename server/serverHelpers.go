@@ -12,6 +12,8 @@ import (
     "shufflemessage/mycrypto" 
 )
 
+const blockSize = 128
+
 //some utility functions used by the servers
 
 func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  pubKeys []*[32]byte) {
@@ -19,7 +21,7 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  
     numServers := len(setupConns)
     
     // only m and M are sent to the server in the performance test
-    shareLength := 32
+    shareLength := blockSize * 2
     boxedShareLength := (shareLength + box.AnonymousOverhead)
 
     //generate preliminary permutation
@@ -31,7 +33,8 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  
     }
     rand.Read(seed)
     prelimPerm := mycrypto.GenPerm(batchSize, seed)
-    //NOTE: the preliminary permutation is effectively "for free" to evaluate because the server just copies the client messages into their permuted indices directly
+    //NOTE: the preliminary permutation is effectively "for free" to evaluate 
+    //because the server just copies the client messages into their permuted indices directly
     
     
     numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
@@ -116,7 +119,7 @@ func myClientSim(msgType int, pubKeys []*[32]byte, withProof bool) ([]byte, time
 
 func otherReceivingPhase(db [][]byte, setupConns [][]net.Conn, numServers, batchSize int, myPubKey, mySecKey *[32]byte, myNum int) {
 
-    shareLength := 32
+    shareLength := blockSize * 2
     boxedShareLength := (shareLength + box.AnonymousOverhead)
     numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
     //numThreads = 1
@@ -148,28 +151,6 @@ func otherReceivingPhase(db [][]byte, setupConns [][]net.Conn, numServers, batch
             
             blocker <- 1
         }(startIndex, endIndex, i)
-    }
-    
-    for i:=0; i < numThreads; i++ {
-        <- blocker
-    }
-}
-
-func expandDB(db [][]byte, msgBlocks int) {
-    blocker := make(chan int)
-    batchSize := len(db)
-    numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
-    
-    for i:=0; i < numThreads; i++ {
-        startIndex := i*chunkSize;
-        endIndex := (i+1)*chunkSize
-        go func(startI, endI int) {
-            for j:=startI; j < endI; j++ {
-                copy(db[j][(msgBlocks+1)*16:], 
-                     mycrypto.AesPRG(msgBlocks*16, db[j][(msgBlocks+1)*16:(msgBlocks+2)*16]))
-            }
-            blocker <- 1
-        }(startIndex, endIndex)
     }
     
     for i:=0; i < numThreads; i++ {
@@ -232,7 +213,7 @@ func unflatten(db [][]byte, flatDB []byte) {
 //merge the concatenation of flattened DBs into one DB
 //by taking the elementwise sum of all the DBs
 func mergeFlattenedDBs(flatDBs []byte, numServers, dbSize int) []byte {
-    if dbSize % 16 != 0 || len(flatDBs) != numServers*dbSize {
+    if dbSize % blockSize != 0 || len(flatDBs) != numServers*dbSize {
         panic("something is wrong with the MergeFlattenedDBs parameters")
     }
     

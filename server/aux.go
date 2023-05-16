@@ -134,25 +134,11 @@ func aux (numServers int, batchSizeParams []int, addrs []string) {
                 beaverBlocker <- 1
             }()
             
-            //second round of beaver triples
-            beaversTwo := mycrypto.GenBeavers(batchSize, 96, seeds)
-            
             //make sure the previous messages are all sent
             for i:=0; i < numServers; i++ {
                 <- blocker
             }
             <- beaverBlocker
-            
-            //send beaver stuff
-            for i:=0; i < numServers; i++ {
-                go func(myBeavers []byte, serverNum int) {
-                    writeToConn(conns[serverNum], myBeavers)
-                    blocker <- 1
-                }(beaversTwo[i], i)
-            }
-            for i:=0; i < numServers; i++ {
-                <- blocker
-            }
             
             elapsedTime := time.Since(startTime)
             totalTime += elapsedTime
@@ -160,7 +146,7 @@ func aux (numServers int, batchSizeParams []int, addrs []string) {
             totalBatches++
             
             if testCount == 4 {
-                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 16)
+                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 127)
                 fmt.Printf("preprocessing data prepared in %s\n", elapsedTime)
                 fmt.Printf("first beaver generation time only: %s, average: %s\n", beaverElapsedTime, beaverTotalTime/time.Duration(totalBatches))
                 fmt.Printf("%d batches prepared, average time %s\n\n", totalBatches, totalTime/time.Duration(totalBatches))

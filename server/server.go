@@ -197,13 +197,13 @@ func main() {
         blocksPerRow := 2 // To be modified later
         numBeavers := batchSize * 2
         
-        dbSize := blocksPerRow*batchSize*16
+        dbSize := blocksPerRow*batchSize*blockSize
         
         //data structure for holding batch of messages
-        //each entry will be of length blocksPerRow*16
+        //each entry will be of length blocksPerRow*blockSize
         db := make([][]byte, batchSize)
         for i:= 0; i < batchSize; i++ {
-            db[i] = make([]byte, blocksPerRow*16)
+            db[i] = make([]byte, blocksPerRow*blockSize)
         }
         flatDB := make([]byte, dbSize)
 
@@ -264,6 +264,7 @@ func main() {
             } else {
                 otherReceivingPhase(db, setupConns, numServers, batchSize, pubKeys[serverNum], mySecKey, serverNum)
             }
+
             //runtime.GC()
             log.Println("starting processing of message batch")
             //processing phase
@@ -297,11 +298,11 @@ func main() {
             }()
             //generate the shares for which seeds were sent to the aux server
             go func() {
-                beaversA = mycrypto.AesPRG(16*numBeavers, seeds[48:64])
+                beaversA = mycrypto.AesPRG(blockSize*numBeavers, seeds[48:64])
                 beaverBlocker <- 1
             }()
             go func() {
-                beaversB = mycrypto.AesPRG(16*numBeavers, seeds[64:80])
+                beaversB = mycrypto.AesPRG(blockSize*numBeavers, seeds[64:80])
                 beaverBlocker <- 1
             }()
             go func() {
@@ -329,7 +330,7 @@ func main() {
 
             go func() {
                 //read beaver triples and share translation stuff
-                beaversC = readFromConn(auxConn, numBeavers*16)
+                beaversC = readFromConn(auxConn, numBeavers*blockSize)
                 beaverCBlocker <- 1
                 if serverNum == numServers - 1 {//read delta
                     delta = readFromConn(auxConn, dbSize)
@@ -361,9 +362,9 @@ func main() {
             // test
             data := make([][]byte, batchSize)
             for i:= 0; i < batchSize; i++ {
-                data[i] = make([]byte, blocksPerRow*16*2)
-                copy(data[i][:blocksPerRow*16], db[i][:])
-                data[i][blocksPerRow*16*2-1] = 1;
+                data[i] = make([]byte, blocksPerRow*blockSize*2)
+                copy(data[i][:blocksPerRow*blockSize], db[i][:])
+                data[i][blocksPerRow*blockSize*2-1] = 1;
             }
             result := getProduct(batchSize, serverNum, numServers, beaversA, beaversB, beaversC, data, conns, leader)
             log.Println(len(result))
@@ -442,7 +443,7 @@ func main() {
                 endI := (i+1)*chunkSize
                 go func(startIndex, endIndex int) {
                     for j:=startIndex; j < endIndex; j++ {
-                        db[j] = flatDB[j*blocksPerRow*16:(j+1)*blocksPerRow*16]
+                        db[j] = flatDB[j*blocksPerRow*blockSize:(j+1)*blocksPerRow*blockSize]
                     }
                     unflattenBlocker <- 1
                 }(startI, endI)
@@ -482,7 +483,7 @@ func main() {
             //merge DBs
             mergedDB := mergeFlattenedDBs(flatDBs, numServers, len(flatDB))
             
-            _ = mergedDB
+            // _ = mergedDB
             /*The servers don't actually need to do this last step, the clients can do it 
             themselves, both when it's used for broadcast and messaging*/
             
@@ -499,10 +500,10 @@ func main() {
             //only the leader outputs the stats on the last round
             if leader && testCount == 4{
 
-                //log.Println(outputDB);
+                log.Println(mergedDB)
                 
-                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 16)
-                fmt.Printf("shuffle time: %s, average: %s", shuffleElapsedTime, totalShuffleTime/time.Duration(batchesCompleted))
+                fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 127)
+                fmt.Printf("shuffle time: %s, average: %s\n", shuffleElapsedTime, totalShuffleTime/time.Duration(batchesCompleted))
                 fmt.Printf("reveal time: %s, average: %s\n", revealElapsedTime, totalRevealTime/time.Duration(batchesCompleted))
                 fmt.Printf("batches completed: %d\n", batchesCompleted)
                 fmt.Printf("Time for this batch: %s\n", elapsedTime)
@@ -510,7 +511,6 @@ func main() {
                 
                 log.Printf("Average time per batch: %s\n\n\n", totalTime/time.Duration(batchesCompleted))
             }
-            
         }
     }
 }

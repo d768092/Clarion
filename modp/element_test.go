@@ -309,7 +309,21 @@ func BenchmarkSqrtELEMENT(b *testing.B) {
 
 func BenchmarkMulELEMENT(b *testing.B) {
 	x := Element{
-		25281,
+		2924466424528896,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
+		0,
 		0,
 	}
 	benchResElement.SetOne()
@@ -476,6 +490,104 @@ type testPairElement struct {
 }
 
 func (z *Element) biggerOrEqualModulus() bool {
+	if z[15] > qElement[15] {
+		return true
+	}
+	if z[15] < qElement[15] {
+		return false
+	}
+
+	if z[14] > qElement[14] {
+		return true
+	}
+	if z[14] < qElement[14] {
+		return false
+	}
+
+	if z[13] > qElement[13] {
+		return true
+	}
+	if z[13] < qElement[13] {
+		return false
+	}
+
+	if z[12] > qElement[12] {
+		return true
+	}
+	if z[12] < qElement[12] {
+		return false
+	}
+
+	if z[11] > qElement[11] {
+		return true
+	}
+	if z[11] < qElement[11] {
+		return false
+	}
+
+	if z[10] > qElement[10] {
+		return true
+	}
+	if z[10] < qElement[10] {
+		return false
+	}
+
+	if z[9] > qElement[9] {
+		return true
+	}
+	if z[9] < qElement[9] {
+		return false
+	}
+
+	if z[8] > qElement[8] {
+		return true
+	}
+	if z[8] < qElement[8] {
+		return false
+	}
+
+	if z[7] > qElement[7] {
+		return true
+	}
+	if z[7] < qElement[7] {
+		return false
+	}
+
+	if z[6] > qElement[6] {
+		return true
+	}
+	if z[6] < qElement[6] {
+		return false
+	}
+
+	if z[5] > qElement[5] {
+		return true
+	}
+	if z[5] < qElement[5] {
+		return false
+	}
+
+	if z[4] > qElement[4] {
+		return true
+	}
+	if z[4] < qElement[4] {
+		return false
+	}
+
+	if z[3] > qElement[3] {
+		return true
+	}
+	if z[3] < qElement[3] {
+		return false
+	}
+
+	if z[2] > qElement[2] {
+		return true
+	}
+	if z[2] < qElement[2] {
+		return false
+	}
+
 	if z[1] > qElement[1] {
 		return true
 	}
@@ -493,18 +605,46 @@ func gen() gopter.Gen {
 		g.element = Element{
 			genParams.NextUint64(),
 			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
+			genParams.NextUint64(),
 		}
-		if qElement[1] != ^uint64(0) {
-			g.element[1] %= (qElement[1] + 1)
+		if qElement[15] != ^uint64(0) {
+			g.element[15] %= (qElement[15] + 1)
 		}
 
 		for g.element.biggerOrEqualModulus() {
 			g.element = Element{
 				genParams.NextUint64(),
 				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
+				genParams.NextUint64(),
 			}
-			if qElement[1] != ^uint64(0) {
-				g.element[1] %= (qElement[1] + 1)
+			if qElement[15] != ^uint64(0) {
+				g.element[15] %= (qElement[15] + 1)
 			}
 		}
 
