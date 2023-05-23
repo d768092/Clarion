@@ -1,26 +1,215 @@
 package main
 
 import (
-    "log"
-    "net"
-    "golang.org/x/crypto/nacl/box"
-    "io"
-    "time"
-    "crypto/rand"
-    //"crypto/tls"
-    
-    "shufflemessage/mycrypto" 
+	"crypto/rand"
+	"io"
+	"log"
+	"net"
+	"time"
+	"golang.org/x/crypto/nacl/box"
+	"shufflemessage/mycrypto"
 )
 
 const blockSize = 128
 
-//some utility functions used by the servers
+const clientTestNum = 10
 
-func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  pubKeys []*[32]byte) {
+var q = mycrypto.Order.Bytes()
+
+//some utility functions used by the servers
+func checkProof(db, beaversA, beaversB, beaversC []byte, conns []net.Conn, myNum int, leader bool) (bool, time.Duration) {
+    // db: [m], [M], [b], id, a, z1, z2
+    startTime := time.Now()
+    numServers := len(conns)
+    com := mycrypto.ComHash(db[:blockSize*5])
+    coms := broadcastAndReceiveFromAll(com, conns, myNum)
+    hash := mycrypto.Hash(coms)
+    if !mycrypto.CheckFirstProof(db[blockSize*3:], mycrypto.AesPRG(blockSize, hash)) {
+        elapsedTime := time.Since(startTime)
+        return false, elapsedTime
+    } else {
+        log.Println("First proof passed.")
+    }
+
+    size := blockSize*(2*numServers-1)
+    m := db[:blockSize]
+    M := db[blockSize:blockSize*2]
+    // check m^q = 1
+    mq := getShareOfExp(m, q, beaversA[:size], beaversB[:size], 
+                        beaversC[:size], conns, myNum, leader)
+    mqShares := broadcastAndReceiveFromAll(mq, conns, myNum)
+    if !mycrypto.CheckSharesAreOne(1, numServers, mqShares) {
+        elapsedTime := time.Since(startTime)
+        return false, elapsedTime
+    } else {
+        log.Println("m^q=1 check passed.")
+    }
+
+    // check M^q = 1
+    Mq := getShareOfExp(M, q, beaversA[size:size*2], beaversB[size:size*2], 
+                        beaversC[size:size*2], conns, myNum, leader)
+    MqShares := broadcastAndReceiveFromAll(Mq, conns, myNum)
+    if !mycrypto.CheckSharesAreOne(1, numServers, MqShares) {
+        elapsedTime := time.Since(startTime)
+        return false, elapsedTime
+    } else {
+        log.Println("M^q=1 check passed.")
+    }
+
+    // check m^z1 g3^z2 = M^ch b
+    z1 := db[blockSize*5:blockSize*6]
+    mz1 := getShareOfExp(m, z1, beaversA[size*2:size*3], beaversB[size*2:size*3], 
+                        beaversC[size*2:size*3], conns, myNum, leader)
+    
+    ch := mycrypto.AesPRG(blockSize, hash)
+    Mch := getShareOfExp(M, ch, beaversA[size*3:size*4], beaversB[size*3:size*4], 
+                        beaversC[size*3:size*4], conns, myNum, leader)
+    // compute MchbShares from Mch, bShare
+    // compute testShares = g3z2 * mz1 - MchbShares
+    // check if Merge(testShares) = 0
+    bShare := db[blockSize*2:blockSize*3]
+    r := make([]byte, blockSize*2)
+    copy(r[:blockSize], Mch)
+    copy(r[blockSize:blockSize*2], bShare)
+    MchbShare := getProductShare(myNum, numServers, beaversA[size*4:], 
+                beaversB[size*4:], beaversC[size*4:], r, conns, leader)
+    z2 := db[blockSize*6:blockSize*7]
+    // base := make([]byte, blockSize)
+    // copy(base, mycrypto.G3)
+    mycrypto.MulScalarExp(mz1, mycrypto.G3, z2)
+    mycrypto.AddOrSub(MchbShare, mz1, false)
+    shares := broadcastAndReceiveFromAll(MchbShare, conns, myNum)
+
+    elapsedTime := time.Since(startTime)
+    if !mycrypto.CheckSharesAreZero(1, numServers, shares) {
+        return false, elapsedTime
+    } else {
+        log.Println("id&backdoor check passed.")
+    }
+    return true, elapsedTime
+}
+
+func getShareOfExp(baseShare, exponent, beaversA, beaversB, beaversC []byte, conns []net.Conn, myNum int, leader bool) []byte {
+    numServers := len(conns)
+    expShares := mycrypto.GenExpNegShares(numServers, exponent)
+    allExpShares := sendAndReceiveFromAll(expShares, conns, myNum)
+    var product []byte
+    r := make([]byte, blockSize*2)
+    copy(r[:blockSize], allExpShares[:blockSize])
+    for i:=1; i < numServers; i++ {
+        copy(r[blockSize:blockSize*2], allExpShares[blockSize*2*i:blockSize*(2*i+1)])
+        startIndex := blockSize*(i-1)
+        endIndex := blockSize*i
+        product = getProductShare(myNum, numServers, beaversA[startIndex:endIndex], 
+                    beaversB[startIndex:endIndex], beaversC[startIndex:endIndex], r, conns, leader)
+        copy(r[:blockSize], product)
+    }
+    copy(r[blockSize:blockSize*2], baseShare)
+    startIndex := blockSize*(numServers-1)
+    endIndex := blockSize*numServers
+    mrShare := getProductShare(myNum, numServers, beaversA[startIndex:endIndex], 
+                beaversB[startIndex:endIndex], beaversC[startIndex:endIndex], r, conns, leader)
+    rexp := make([]byte, blockSize*2)
+    copy(rexp[:blockSize], allExpShares[blockSize:blockSize*2])
+    for i:=1; i < numServers; i++ {
+        startIndex := blockSize*(numServers+i-1)
+        endIndex := blockSize*(numServers+i)
+        copy(rexp[blockSize:blockSize*2], allExpShares[blockSize*(2*i+1):blockSize*(2*i+2)])
+        product = getProductShare(myNum, numServers, beaversA[startIndex:endIndex], 
+                    beaversB[startIndex:endIndex], beaversC[startIndex:endIndex], rexp, conns, leader)
+        copy(rexp[:blockSize], product)
+    }
+    // return (mr)^z[rexp]
+    mrShares := broadcastAndReceiveFromAll(mrShare, conns, myNum)
+    mr := mergeFlattenedDBs(mrShares, numServers, blockSize)
+    mycrypto.MulScalarExp(product, mr, exponent)
+    return product
+}
+
+func myClientSim(msgType int, pubKeys []*[32]byte, withProof bool) ([]byte, time.Duration) {
+    startTime := time.Now()
+    numServers := len(pubKeys)
+    id, secret := mycrypto.GenerateID()
+    msg := mycrypto.MakeFullMsg(msgType, secret)
+
+    msgShares := mycrypto.Share(numServers, msg)
+
+    msgToSend := msgShares[0]
+
+    var bShares [][]byte
+    var proof []byte
+    if withProof {
+        bShares, proof = mycrypto.MakeProof(msgShares, msg, id, secret)
+        msgToSend = append(msgToSend, bShares[0]...)
+        msgToSend = append(msgToSend, id...)
+        msgToSend = append(msgToSend, proof...)
+    }
+
+    for i:= 1; i < numServers; i++ {
+        msgOthers := msgShares[i]
+        if withProof {
+            msgOthers = append(msgOthers, bShares[i]...)
+            msgOthers = append(msgOthers, id...)
+            msgOthers = append(msgOthers, proof...)
+        }
+        //SealAnonymous appends its output to msgToSend
+        boxedMessage, err := box.SealAnonymous(nil, msgOthers, pubKeys[i], rand.Reader)
+        if err != nil {
+            panic(err)
+        }
+        msgToSend = append(msgToSend, boxedMessage...)
+    }
+
+    elapsedTime := time.Since(startTime)
+    
+    return msgToSend, elapsedTime
+}
+
+func leaderReceivingProof(msgType int, db []byte, conns []net.Conn, pubKeys []*[32]byte) time.Duration {
+    //client connection receiving phase
+    numServers := len(conns)
+    
+    // [m], [M], [b], id, a, z1, z2
+    shareLength := blockSize * 7
+    boxedShareLength := (shareLength + box.AnonymousOverhead)
+
+    //handle connections from client, pass on boxes
+    clientTransmission, clientTime := myClientSim(msgType, pubKeys, true)
+                
+    //handle the message sent for this server
+    copy(db[:shareLength], clientTransmission[:shareLength])
+    
+    //pass on the boxes to the other servers, send the index they should be placed in too
+    for i := 1; i < numServers; i++ {
+        //send client message
+        start := shareLength + (i-1)*boxedShareLength
+        end := shareLength + i*boxedShareLength
+        writeToConn(conns[i], clientTransmission[start:end])
+    }
+    return clientTime
+}
+
+func otherReceivingProof(db []byte, conns []net.Conn, myPubKey, mySecKey *[32]byte) {
+    
+    shareLength := blockSize * 7
+    boxedShareLength := (shareLength + box.AnonymousOverhead)
+
+    clientBox := readFromConn(conns[0], boxedShareLength)
+                
+    clientMessage, ok := box.OpenAnonymous(nil, clientBox, myPubKey, mySecKey)
+    if !ok {
+        panic("decryption not ok!!")
+    }
+    
+    //store in db
+    copy(db[:shareLength], clientMessage[:])
+}
+
+func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int, pubKeys []*[32]byte) {
     //client connection receiving phase
     numServers := len(setupConns)
     
-    // only m and M are sent to the server in the performance test
+    // only send m and M in performance experiment
     shareLength := blockSize * 2
     boxedShareLength := (shareLength + box.AnonymousOverhead)
 
@@ -51,7 +240,6 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  
                         
             for msgCount := startI; msgCount < endI; msgCount++ {
                 //handle connections from client, pass on boxes
-                
                 clientTransmission, _ := myClientSim(msgCount%26, pubKeys, false)
                 
                 //handle the message sent for this server
@@ -78,46 +266,7 @@ func leaderReceivingPhase(db [][]byte, setupConns [][]net.Conn, batchSize int,  
     }
 }
 
-func myClientSim(msgType int, pubKeys []*[32]byte, withProof bool) ([]byte, time.Duration) {
-    startTime := time.Now()
-    numServers := len(pubKeys)
-    id, secret := mycrypto.GenerateID()
-    msg := mycrypto.MakeFullMsg(msgType, secret)
-
-    msgShares := mycrypto.Share(numServers, msg)
-
-    msgToSend := msgShares[0]
-
-    var bShares [][]byte
-    var proof []byte
-    if withProof {
-        bShares, proof = mycrypto.MakeProof(msgShares, msg, id, secret)
-        msgToSend = append(msgToSend, bShares[0]...)
-        msgToSend = append(msgToSend, id...)
-        msgToSend = append(msgToSend, proof...)
-    }
-
-    for i:= 1; i < numServers; i++ {
-        msgOthers := msgShares[i]
-        if withProof {
-            msgOthers = append(msgOthers, bShares[i]...)
-            msgToSend = append(msgToSend, id...)
-            msgOthers = append(msgOthers, proof...)
-        }
-        //SealAnonymous appends its output to msgToSend
-        boxedMessage, err := box.SealAnonymous(nil, msgOthers, pubKeys[i], rand.Reader)
-        if err != nil {
-            panic(err)
-        }
-        msgToSend = append(msgToSend, boxedMessage...)
-    }
-
-    elapsedTime := time.Since(startTime)
-    
-    return msgToSend, elapsedTime
-}
-
-func otherReceivingPhase(db [][]byte, setupConns [][]net.Conn, numServers, batchSize int, myPubKey, mySecKey *[32]byte, myNum int) {
+func otherReceivingPhase(db [][]byte, setupConns [][]net.Conn, numServers, batchSize int, myPubKey, mySecKey *[32]byte) {
 
     shareLength := blockSize * 2
     boxedShareLength := (shareLength + box.AnonymousOverhead)
@@ -262,11 +411,46 @@ func broadcastAndReceiveFromAll(msg []byte, conns []net.Conn, myNum int) []byte 
     return content
 }
 
-func getProduct(batchSize, serverNum, numServers int, beaversA, beaversB, beaversC []byte, db [][]byte, conns []net.Conn, leader bool) [] byte {
-    maskedStuff := mycrypto.GetMaskedStuff(batchSize, 1, serverNum, beaversA, beaversB, db)
+func sendAndReceiveFromAll(msg [][]byte, conns []net.Conn, myNum int) []byte {
+    blocker := make(chan int)
+    numServers := len(conns)
+    contentLenPerServer := len(msg[0])
+    content := make([]byte, contentLenPerServer*numServers)
+        
+    //for servers with lower number, read then write
+    for i:=0; i < myNum; i++ {
+        go func(data, outputLocation []byte, conn net.Conn) {
+            bytesToRead := len(data)
+            copy(outputLocation, readFromConn(conn, bytesToRead))
+            writeToConn(conn, data)
+            blocker <- 1
+        }(msg[i], content[i*contentLenPerServer:(i+1)*contentLenPerServer], conns[i])
+    }
+    
+    //for servers with higher number, write then read
+    for i:= myNum+1; i < numServers; i++ {
+        go func(data, outputLocation []byte, conn net.Conn) {
+            bytesToRead := len(data)
+            writeToConn(conn, data)
+            copy(outputLocation, readFromConn(conn, bytesToRead))
+            blocker <- 1
+        }(msg[i], content[i*contentLenPerServer:(i+1)*contentLenPerServer], conns[i])
+    }
+    
+    //"receive" from self
+    copy(content[contentLenPerServer*myNum:contentLenPerServer*(myNum+1)], msg[myNum][:])
+    
+    for i := 1; i < numServers; i++ {
+        <- blocker
+    }
+    
+    return content
+}
+
+func getProductShare(serverNum, numServers int, beaversA, beaversB, beaversC, db []byte, conns []net.Conn, leader bool) [] byte {
+    maskedStuff := mycrypto.GetMaskedStuff(1, 1, serverNum, beaversA, beaversB, db)
     maskedShares := broadcastAndReceiveFromAll(maskedStuff, conns, serverNum)
     mergedMaskedShares := mergeFlattenedDBs(maskedShares, numServers, len(maskedStuff))
-    macDiffShares := mycrypto.BeaverProduct(1, batchSize, beaversC, mergedMaskedShares, db, leader, false)
-    finalMacDiffShares := broadcastAndReceiveFromAll(macDiffShares, conns, serverNum)
-    return finalMacDiffShares
+    macDiffShares := mycrypto.BeaverProduct(1, 1, beaversC, mergedMaskedShares, db, leader)
+    return macDiffShares
 }

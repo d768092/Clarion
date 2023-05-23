@@ -65,26 +65,62 @@ func aux (numServers int, batchSizeParams []int, addrs []string) {
         writeToConn(conns[i], intToByte(1))
     }
     
+    // client test
+    var beaverTotalTime time.Duration
+    for i:=0; i < clientTestNum; i++ {
+        startTime := time.Now()
+
+        numBeavers := 4*(2*numServers-1) + 1
+        beaverBlocker := make(chan int)
+        blocker := make(chan int)
+        seeds := make([][]byte, numServers)
+        for i:=0; i < numServers; i++ {
+            go func(index int) {
+                seeds[index] = readFromConn(conns[index], 32)
+                blocker <- 1
+            }(i)
+        }
+        
+        for i:=0; i < numServers; i++ {
+            <- blocker
+        }
+
+        beavers := mycrypto.GenBeavers(numBeavers, 0, seeds)
+        //send servers their beaver stuff
+        for i:=0; i < numServers; i++ {
+            go func(myBeavers []byte, serverNum int) {
+                writeToConn(conns[serverNum], myBeavers)
+                beaverBlocker <- 1
+            }(beavers[i], i)
+        }
+
+        for i:=0; i < numServers; i++ {
+            <- beaverBlocker
+        }
+
+        beaverElapsedTime := time.Since(startTime)
+        beaverTotalTime += beaverElapsedTime
+
+        if i == clientTestNum - 1 {
+            fmt.Printf("Beaver generation time: %s\n", beaverTotalTime/time.Duration(clientTestNum))
+        }
+    }
     
     for evalNum := 0; evalNum < numParams; evalNum++ {
-        // msgBlocks := msgBlocksParams[evalNum]
         batchSize := batchSizeParams[evalNum]
         
         log.Printf("numServers %d\n", numServers)
-        // log.Printf("msgBlocks %d\n", msgBlocks)
         log.Printf("batchSize %d\n", batchSize)
         
-        // blocksPerRow :=  2*(msgBlocks+1) + 1
-        // numBeavers := batchSize * (msgBlocks+1)
         blocksPerRow :=  2
-        numBeavers := batchSize * 2
+        
         
         totalBatches := 0
         var totalTime time.Duration
-        var beaverTotalTime time.Duration
+        
         blocker := make(chan int)
         deltaBlocker := make(chan int)
-        beaverBlocker := make(chan int)
+        
         seeds := make([][]byte, numServers)
         
         for testCount:=0; testCount < 5; testCount++{
@@ -93,7 +129,7 @@ func aux (numServers int, batchSizeParams []int, addrs []string) {
             
             for i:=0; i < numServers; i++ {
                 go func(index int) {
-                    seeds[index] = readFromConn(conns[index], 128)
+                    seeds[index] = readFromConn(conns[index], 64)
                     blocker <- 1
                 }(i)
             }
@@ -106,49 +142,24 @@ func aux (numServers int, batchSizeParams []int, addrs []string) {
                 
             startTime := time.Now()
             
-            //generate the preprocessed information for all the parties
-
-            beavers := mycrypto.GenBeavers(numBeavers, 48, seeds)
-            
-            //send servers their beaver stuff
-            for i:=0; i < numServers; i++ {
-                go func(myBeavers []byte, serverNum int) {
-                    writeToConn(conns[serverNum], myBeavers)
-                    if serverNum == numServers - 1 {
-                        deltaBlocker <- 1
-                    }
-                    blocker <- 1
-                }(beavers[i], i)
-            }
-            
-            beaverElapsedTime := time.Since(startTime)
-                    
             //get the last delta
             delta := mycrypto.GenShareTrans(batchSize, blocksPerRow, seeds)
             
             //send the last server delta
             go func(){
-                //consume the delta blocker
-                <- deltaBlocker
                 writeToConn(conns[numServers - 1], delta)
-                beaverBlocker <- 1
+                deltaBlocker <- 1
             }()
-            
-            //make sure the previous messages are all sent
-            for i:=0; i < numServers; i++ {
-                <- blocker
-            }
-            <- beaverBlocker
-            
+
+            <- deltaBlocker
             elapsedTime := time.Since(startTime)
             totalTime += elapsedTime
-            beaverTotalTime += beaverElapsedTime
+            
             totalBatches++
             
             if testCount == 4 {
                 fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 127)
                 fmt.Printf("preprocessing data prepared in %s\n", elapsedTime)
-                fmt.Printf("first beaver generation time only: %s, average: %s\n", beaverElapsedTime, beaverTotalTime/time.Duration(totalBatches))
                 fmt.Printf("%d batches prepared, average time %s\n\n", totalBatches, totalTime/time.Duration(totalBatches))
                 
                 log.Printf("%d batches prepared, average time %s\n\n", totalBatches, totalTime/time.Duration(totalBatches))
