@@ -123,7 +123,7 @@ func aux (numServers int, batchSizeParams []int, addrs []string) {
         
         seeds := make([][]byte, numServers)
         
-        for testCount:=0; testCount < 5; testCount++{
+        for testCount:=0; testCount < serverTestNum; testCount++{
             runtime.GC()
             log.Println("ready")
             

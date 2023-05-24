@@ -1,30 +1,30 @@
 package main
 
 import (
+	"bufio"
+	"crypto/rand"
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"os"
-	"time"
-	"crypto/rand"
-	"golang.org/x/crypto/nacl/box"
-	"bufio"
-	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
+
+	"golang.org/x/crypto/nacl/box"
 
 	"shufflemessage/mycrypto"
 )
 
-func main() {    
+func main() {
     
     numServers := 0
     batchSizeParams := make([]int, 0)    
     serverNum := 0
     paramFile := ""
     numParams := 0
-    
     
     log.SetFlags(log.Lshortfile)
         
@@ -187,7 +187,8 @@ func main() {
         // compute [r] with k-1 product
         // compute [mr] with 1 product
         // compute [r^(-z)] with k-1 product
-        // 4 exponentiation and 1 product:
+        // total: 2k-1 product
+        // We have 4 exponentiation and 1 product:
         // m^q, M^q, m^z1, M^ch, Mch*b
         numBeavers := 4*(2*numServers-1) + 1
         beaversA := make([]byte, 0)
@@ -234,7 +235,7 @@ func main() {
             clientTime := leaderReceivingProof(i, db, conns, pubKeys)
             totalClientTime += clientTime
             pass, serverTime := checkProof(db, beaversA, beaversB, beaversC, conns, serverNum, true)
-            fmt.Printf("%d client validation: %t\n", i, pass)
+            fmt.Printf("Client %d's validation: %t\n", i, pass)
             totalServerTime += serverTime
             if i == clientTestNum - 1 {
                 fmt.Printf("Client average compute time: %s\n\n", totalClientTime/time.Duration(10))
@@ -311,7 +312,7 @@ func main() {
         hashBlocker := make(chan int)
         unflattenBlocker := make(chan int)
         
-        for testCount:=0; testCount < 5; testCount++{
+        for testCount:=0; testCount < serverTestNum; testCount++{
             runtime.GC()
             log.Println("server ready")
             //NOTE: since the purpose of this evaluation is to measure the performance once the servers have already received the messages from the client, I'm just going to have the lead server generate the client queries and pass them on to the others to save time
@@ -322,10 +323,9 @@ func main() {
                 otherReceivingPhase(db, setupConns, numServers, batchSize, pubKeys[serverNum], mySecKey)
             }
 
-            //runtime.GC()
             log.Println("starting processing of message batch")
             //processing phase
-            //NOTE: in reality, the blind verification and aux server stuff could be done as messages arrive
+            //NOTE: in reality, the aux server stuff could be done as messages arrive
             //this would speed up the processing time, esp. if the server were multithreaded
             //but I'm handling everything for a batch at once so I can report performance for processing a batch        
                         
@@ -508,7 +508,7 @@ func main() {
             }
             
             //only the leader outputs the stats on the last round
-            if leader && testCount == 4{
+            if leader && testCount == serverTestNum-1 {
 
                 // log.Println(mergedDB)
                 
@@ -516,7 +516,6 @@ func main() {
                 fmt.Printf("shuffle time: %s, average: %s\n", shuffleElapsedTime, totalShuffleTime/time.Duration(batchesCompleted))
                 fmt.Printf("reveal time: %s, average: %s\n", revealElapsedTime, totalRevealTime/time.Duration(batchesCompleted))
                 fmt.Printf("batches completed: %d\n", batchesCompleted)
-                fmt.Printf("Time for this batch: %s\n", elapsedTime)
                 fmt.Printf("Average time per batch: %s\n\n\n", totalTime/time.Duration(batchesCompleted))
                 
                 log.Printf("Average time per batch: %s\n\n\n", totalTime/time.Duration(batchesCompleted))

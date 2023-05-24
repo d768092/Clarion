@@ -5,14 +5,15 @@ import (
 	"io"
 	"log"
 	"net"
-	"time"
-	"golang.org/x/crypto/nacl/box"
 	"shufflemessage/mycrypto"
+	"time"
+
+	"golang.org/x/crypto/nacl/box"
 )
 
 const blockSize = 128
-
 const clientTestNum = 10
+const serverTestNum = 5
 
 var q = mycrypto.Order.Bytes()
 
@@ -24,16 +25,16 @@ func checkProof(db, beaversA, beaversB, beaversC []byte, conns []net.Conn, myNum
     com := mycrypto.ComHash(db[:blockSize*5])
     coms := broadcastAndReceiveFromAll(com, conns, myNum)
     hash := mycrypto.Hash(coms)
-    if !mycrypto.CheckFirstProof(db[blockSize*3:], mycrypto.AesPRG(blockSize, hash)) {
+    ch := mycrypto.AesPRG(blockSize, hash)
+    if !mycrypto.CheckFirstProof(db[blockSize*3:], ch) {
         elapsedTime := time.Since(startTime)
         return false, elapsedTime
-    } else {
-        log.Println("First proof passed.")
     }
 
     size := blockSize*(2*numServers-1)
     m := db[:blockSize]
     M := db[blockSize:blockSize*2]
+
     // check m^q = 1
     mq := getShareOfExp(m, q, beaversA[:size], beaversB[:size], 
                         beaversC[:size], conns, myNum, leader)
@@ -41,8 +42,6 @@ func checkProof(db, beaversA, beaversB, beaversC []byte, conns []net.Conn, myNum
     if !mycrypto.CheckSharesAreOne(1, numServers, mqShares) {
         elapsedTime := time.Since(startTime)
         return false, elapsedTime
-    } else {
-        log.Println("m^q=1 check passed.")
     }
 
     // check M^q = 1
@@ -52,39 +51,29 @@ func checkProof(db, beaversA, beaversB, beaversC []byte, conns []net.Conn, myNum
     if !mycrypto.CheckSharesAreOne(1, numServers, MqShares) {
         elapsedTime := time.Since(startTime)
         return false, elapsedTime
-    } else {
-        log.Println("M^q=1 check passed.")
     }
 
     // check m^z1 g3^z2 = M^ch b
     z1 := db[blockSize*5:blockSize*6]
+    z2 := db[blockSize*6:blockSize*7]
     mz1 := getShareOfExp(m, z1, beaversA[size*2:size*3], beaversB[size*2:size*3], 
                         beaversC[size*2:size*3], conns, myNum, leader)
-    
-    ch := mycrypto.AesPRG(blockSize, hash)
+    mycrypto.MulScalarExp(mz1, mycrypto.G3, z2)
+
+    bShare := db[blockSize*2:blockSize*3]
     Mch := getShareOfExp(M, ch, beaversA[size*3:size*4], beaversB[size*3:size*4], 
                         beaversC[size*3:size*4], conns, myNum, leader)
-    // compute MchbShares from Mch, bShare
-    // compute testShares = g3z2 * mz1 - MchbShares
-    // check if Merge(testShares) = 0
-    bShare := db[blockSize*2:blockSize*3]
-    r := make([]byte, blockSize*2)
-    copy(r[:blockSize], Mch)
-    copy(r[blockSize:blockSize*2], bShare)
+    data := make([]byte, blockSize*2)
+    copy(data[:blockSize], Mch)
+    copy(data[blockSize:blockSize*2], bShare)
     MchbShare := getProductShare(myNum, numServers, beaversA[size*4:], 
-                beaversB[size*4:], beaversC[size*4:], r, conns, leader)
-    z2 := db[blockSize*6:blockSize*7]
-    // base := make([]byte, blockSize)
-    // copy(base, mycrypto.G3)
-    mycrypto.MulScalarExp(mz1, mycrypto.G3, z2)
+                beaversB[size*4:], beaversC[size*4:], data, conns, leader)
+    
     mycrypto.AddOrSub(MchbShare, mz1, false)
     shares := broadcastAndReceiveFromAll(MchbShare, conns, myNum)
-
     elapsedTime := time.Since(startTime)
     if !mycrypto.CheckSharesAreZero(1, numServers, shares) {
         return false, elapsedTime
-    } else {
-        log.Println("id&backdoor check passed.")
     }
     return true, elapsedTime
 }
@@ -95,6 +84,8 @@ func getShareOfExp(baseShare, exponent, beaversA, beaversB, beaversC []byte, con
     allExpShares := sendAndReceiveFromAll(expShares, conns, myNum)
     var product []byte
     r := make([]byte, blockSize*2)
+
+    // compute r = \prod r_i
     copy(r[:blockSize], allExpShares[:blockSize])
     for i:=1; i < numServers; i++ {
         copy(r[blockSize:blockSize*2], allExpShares[blockSize*2*i:blockSize*(2*i+1)])
@@ -104,11 +95,15 @@ func getShareOfExp(baseShare, exponent, beaversA, beaversB, beaversC []byte, con
                     beaversB[startIndex:endIndex], beaversC[startIndex:endIndex], r, conns, leader)
         copy(r[:blockSize], product)
     }
+    
+    // compute r*m
     copy(r[blockSize:blockSize*2], baseShare)
     startIndex := blockSize*(numServers-1)
     endIndex := blockSize*numServers
     mrShare := getProductShare(myNum, numServers, beaversA[startIndex:endIndex], 
                 beaversB[startIndex:endIndex], beaversC[startIndex:endIndex], r, conns, leader)
+    
+    // compute r^(-e) = \prod r_i^(-e)
     rexp := make([]byte, blockSize*2)
     copy(rexp[:blockSize], allExpShares[blockSize:blockSize*2])
     for i:=1; i < numServers; i++ {
@@ -119,10 +114,12 @@ func getShareOfExp(baseShare, exponent, beaversA, beaversB, beaversC []byte, con
                     beaversB[startIndex:endIndex], beaversC[startIndex:endIndex], rexp, conns, leader)
         copy(rexp[:blockSize], product)
     }
-    // return (mr)^z[rexp]
+
+    // return (mr)^e[r^(-e)]
     mrShares := broadcastAndReceiveFromAll(mrShare, conns, myNum)
     mr := mergeFlattenedDBs(mrShares, numServers, blockSize)
     mycrypto.MulScalarExp(product, mr, exponent)
+    
     return product
 }
 
