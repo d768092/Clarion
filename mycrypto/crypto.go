@@ -295,14 +295,14 @@ func MulScalarExp(a, base, exponent []byte) {
 
     maskStuffs := make([][]byte, numServers)
     for i:=0; i<numServers; i++ {
-        maskStuffs[i] = GetMaskedStuff(1, 1, i, beaversAs[i][:blockSize], beaversBs[i][:blockSize], r[i])
+        maskStuffs[i] = GetMaskedStuff(i, beaversAs[i][:blockSize], beaversBs[i][:blockSize], r[i])
     }
     mergedMaskedShares := Merge(maskStuffs)
 
     productShares := make([][]byte, numServers)
     for i:=0; i<numServers; i++ {
         leader := (i==0)
-        productShares[i] = BeaverProduct(1, 1, beaversCs[i][:blockSize], mergedMaskedShares, r[i], leader)
+        productShares[i] = BeaverProduct(beaversCs[i][:blockSize], mergedMaskedShares, r[i], leader)
     }
     rComputed := Merge(productShares)
     rC.SetBytes(rComputed)
@@ -316,13 +316,13 @@ func MulScalarExp(a, base, exponent []byte) {
     }
 
     for i:=0; i<numServers; i++ {
-        maskStuffs[i] = GetMaskedStuff(1, 1, i, beaversAs[i][blockSize*2:blockSize*3], beaversBs[i][blockSize*2:blockSize*3], mr[i])
+        maskStuffs[i] = GetMaskedStuff(i, beaversAs[i][blockSize*2:blockSize*3], beaversBs[i][blockSize*2:blockSize*3], mr[i])
     }
     mergedMaskedShares = Merge(maskStuffs)
 
     for i:=0; i<numServers; i++ {
         leader := (i==0)
-        productShares[i] = BeaverProduct(1, 1, beaversCs[i][blockSize*2:blockSize*3], mergedMaskedShares, mr[i], leader)
+        productShares[i] = BeaverProduct(beaversCs[i][blockSize*2:blockSize*3], mergedMaskedShares, mr[i], leader)
     }
 
     mrComputed := Merge(productShares)
@@ -332,13 +332,13 @@ func MulScalarExp(a, base, exponent []byte) {
     log.Printf("(mr)^z1 = %s\n", temp.String())
 
     for i:=0; i<numServers; i++ {
-        maskStuffs[i] = GetMaskedStuff(1, 1, i, beaversAs[i][blockSize:blockSize*2], beaversBs[i][blockSize:blockSize*2], rexp[i])
+        maskStuffs[i] = GetMaskedStuff(i, beaversAs[i][blockSize:blockSize*2], beaversBs[i][blockSize:blockSize*2], rexp[i])
     }
     mergedMaskedShares = Merge(maskStuffs)
     
     for i:=0; i<numServers; i++ {
         leader := (i==0)
-        productShares[i] = BeaverProduct(1, 1, beaversCs[i][blockSize:blockSize*2], mergedMaskedShares, rexp[i], leader)
+        productShares[i] = BeaverProduct(beaversCs[i][blockSize:blockSize*2], mergedMaskedShares, rexp[i], leader)
     }
     
     rexpComputed := Merge(productShares)
@@ -1006,103 +1006,50 @@ func CheckSharesAreOne(batchSize, numServers int, shares []byte) bool {
     return res;
 }
 
-func BeaverProduct(msgBlocks, batchSize int, beaversC, mergedMaskedShares, db []byte, leader bool) []byte {
-    // TODO: refactor: don't need msgBlocks, batchSize
-    keyBlocks := msgBlocks
+func BeaverProduct(beaversC, mergedMaskedShares, db []byte, leader bool) []byte {
+    var maskedKey, myKeyShare, maskedMsg, myMsgShare, temp, beaverProductShare modp.Element
     
-    //locally compute product shares and share of mac, subtract from share of given tag
-    macDiffShares := make([]byte, 0)
-    blocker := make(chan int)
-    numThreads, chunkSize := PickNumThreads(batchSize)
-    macDiffShares = make([]byte, blockSize*batchSize)
-    
-    for t:=0; t < numThreads; t++ {
-        startIndex := t*chunkSize
-        endIndex := (t+1)*chunkSize
-        go func(start, end, threadIndex int) {
-            for i:=start; i < end; i++ {
-                var maskedKey, myKeyShare, maskedMsg, myMsgShare, temp modp.Element
-                var runningSum, beaverProductShare modp.Element
-                for j:=0; j < keyBlocks; j++ {
-                    //do a beaver multiplication here
-                    keyShareIndex := blockSize*msgBlocks + blockSize*j
-                    myKeyShare.SetBytes(db[keyShareIndex:keyShareIndex+blockSize])
-                    myMsgShare.SetBytes(db[blockSize*j:blockSize*(j+1)])
-                    keyIndex := i*blockSize*keyBlocks + blockSize*j
-                    msgIndex := len(mergedMaskedShares)/2 + keyIndex
-                    maskedKey.SetBytes(mergedMaskedShares[keyIndex:keyIndex+blockSize])
-                    maskedMsg.SetBytes(mergedMaskedShares[msgIndex:msgIndex+blockSize])
-                    
-                    if leader {
-                        beaverProductShare.Mul(&maskedKey, &maskedMsg)
-                    } else {
-                        beaverProductShare.SetZero()
-                    }
-                    maskedKey.Mul(&maskedKey, &myMsgShare) //this now holds a product, not a masked key
-                    maskedMsg.Mul(&maskedMsg, &myKeyShare) //this now holds a product, not a masked msg
-                    beaverProductShare.Sub(&maskedKey, &beaverProductShare)
-                    beaverProductShare.Add(&beaverProductShare, &maskedMsg)
-                    beaverIndex := blockSize*keyBlocks*i + blockSize*j
-                    temp.SetBytes(beaversC[beaverIndex:beaverIndex+blockSize])
-                    beaverProductShare.Add(&beaverProductShare, &temp)
-                    runningSum.Add(&runningSum, &beaverProductShare)
-                }
-                copy(macDiffShares[blockSize*i:blockSize*(i+1)], runningSum.Bytes())
-            }
-            blocker <- 1
-        }(startIndex, endIndex, t)
+    macDiffShares := make([]byte, blockSize)
+    myKeyShare.SetBytes(db[blockSize:blockSize*2])
+    myMsgShare.SetBytes(db[:blockSize])
+    maskedKey.SetBytes(mergedMaskedShares[:blockSize])
+    maskedMsg.SetBytes(mergedMaskedShares[blockSize:blockSize*2])
+
+    if leader {
+        beaverProductShare.Mul(&maskedKey, &maskedMsg)
+    } else {
+        beaverProductShare.SetZero()
     }
-    
-    for i:=0; i < numThreads; i++ {
-        <- blocker
-    }
-    
+    maskedKey.Mul(&maskedKey, &myMsgShare) //this now holds a product, not a masked key
+    maskedMsg.Mul(&maskedMsg, &myKeyShare) //this now holds a product, not a masked msg
+    beaverProductShare.Sub(&maskedKey, &beaverProductShare)
+    beaverProductShare.Add(&beaverProductShare, &maskedMsg)
+    temp.SetBytes(beaversC[:blockSize])
+    beaverProductShare.Add(&beaverProductShare, &temp)
+
+    copy(macDiffShares[:blockSize], beaverProductShare.Bytes())
     return macDiffShares
 }
 
-//get all the masked stuff together for the blind mac verification
-func GetMaskedStuff(batchSize, msgBlocks, myNum int, beaversA, beaversB, db []byte) []byte {
-    // TODO: refactor: don't need batchSize and msgBlock
-    keyBlocks := msgBlocks
+//get the masked stuff
+func GetMaskedStuff(myNum int, beaversA, beaversB, db []byte) []byte {
+    var value, mask modp.Element
     
-    maskedMsgShares := make([]byte, blockSize*batchSize*keyBlocks)
+    maskedMsgShares := make([]byte, blockSize)
+    maskedExpandedKeyShares := make([]byte, blockSize)
+
+    //mask the key component
+    value.SetBytes(db[blockSize:blockSize*2])
+    mask.SetBytes(beaversA[:blockSize])
+    value.Sub(&value, &mask)
+    copy(maskedExpandedKeyShares[:blockSize], value.Bytes())
     
-    maskedExpandedKeyShares := make([]byte, blockSize*batchSize*keyBlocks)
-    
-    numThreads, chunkSize := PickNumThreads(batchSize)
-    blocker := make(chan int)
-    
-    for t:= 0; t < numThreads; t++ {
-        startIndex := chunkSize*t
-        endIndex := chunkSize*(t+1)
-        go func(startI, endI int) {
-            var value, mask modp.Element
-            for i:=startI; i < endI; i++ {
-                for j:=0; j < keyBlocks; j++ {
-                    //mask the key component
-                    keyShareIndex := blockSize*msgBlocks + blockSize*j
-                    value.SetBytes(db[keyShareIndex:keyShareIndex+blockSize])
-                    beaverIndex := blockSize*keyBlocks*i + blockSize*j
-                    mask.SetBytes(beaversA[beaverIndex:beaverIndex+blockSize])
-                    value.Sub(&value, &mask)
-                    index := blockSize*keyBlocks*i + blockSize*j
-                    copy(maskedExpandedKeyShares[index:index+blockSize], value.Bytes())
-                    
-                    //mask the message component
-                    value.SetBytes(db[blockSize*j:blockSize*(j+1)])
-                    mask.SetBytes(beaversB[beaverIndex:beaverIndex+blockSize])
-                    value.Sub(&value,&mask)
-                    copy(maskedMsgShares[index:index+blockSize], value.Bytes())
-                }
-            }
-            blocker <- 1
-        }(startIndex, endIndex)
-    }
-    
-    for i:=0; i < numThreads; i++ {
-        <- blocker
-    }
-    
+    //mask the message component
+    value.SetBytes(db[:blockSize])
+    mask.SetBytes(beaversB[:blockSize])
+    value.Sub(&value,&mask)
+    copy(maskedMsgShares[:blockSize], value.Bytes())
+
     maskedStuff := append(maskedExpandedKeyShares, maskedMsgShares...)
     return maskedStuff
 }

@@ -445,9 +445,9 @@ func sendAndReceiveFromAll(msg [][]byte, conns []net.Conn, myNum int) []byte {
 }
 
 func getProductShare(serverNum, numServers int, beaversA, beaversB, beaversC, db []byte, conns []net.Conn, leader bool) [] byte {
-    maskedStuff := mycrypto.GetMaskedStuff(1, 1, serverNum, beaversA, beaversB, db)
+    maskedStuff := mycrypto.GetMaskedStuff(serverNum, beaversA, beaversB, db)
     maskedShares := broadcastAndReceiveFromAll(maskedStuff, conns, serverNum)
     mergedMaskedShares := mergeFlattenedDBs(maskedShares, numServers, len(maskedStuff))
-    macDiffShares := mycrypto.BeaverProduct(1, 1, beaversC, mergedMaskedShares, db, leader)
+    macDiffShares := mycrypto.BeaverProduct(beaversC, mergedMaskedShares, db, leader)
     return macDiffShares
 }
