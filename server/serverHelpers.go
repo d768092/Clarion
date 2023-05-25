@@ -127,19 +127,48 @@ func rebuttalSim(db []byte) (bool, time.Duration) {
     startTime := time.Now()
     rebuttal := true
     batchSize := len(db)/(blockSize*2)
+
     if len(db) % (blockSize*2) != 0 {
         panic("database has length not a multiple of message length")
     }
-    for i:=0; i<batchSize; i++ {
-        secret := make([]byte, blockSize*2)
-        _, err := rand.Read(secret)
-        if err != nil {
-            log.Println("couldn't generate randomness")
-            panic(err)
-        }
-        if mycrypto.CheckMsgSecret(db[blockSize*2*i:blockSize*2*(i+1)], secret) {
-            rebuttal = false
-        }
+
+    numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
+
+    blocker := make(chan int)
+
+    secret := make([]byte, blockSize*2)
+
+    for j:=0; j < numThreads; j++ {
+        startIndex := j*chunkSize
+        endIndex := (j+1)*chunkSize
+        go func(startI, endI int) {
+            for i :=startI; i < endI; i++ {
+                _, err := rand.Read(secret)
+                if err != nil {
+                    log.Println("couldn't generate randomness")
+                    panic(err)
+                }
+                if mycrypto.CheckMsgSecret(db[blockSize*2*i:blockSize*2*(i+1)], secret) {
+                    rebuttal = false
+                }
+            }
+            blocker <- 1
+        }(startIndex, endIndex)
+    }
+    // for i:=0; i<batchSize; i++ {
+    //     secret := make([]byte, blockSize*2)
+    //     _, err := rand.Read(secret)
+    //     if err != nil {
+    //         log.Println("couldn't generate randomness")
+    //         panic(err)
+    //     }
+    //     if mycrypto.CheckMsgSecret(db[blockSize*2*i:blockSize*2*(i+1)], secret) {
+    //         rebuttal = false
+    //     }
+    // }
+
+    for i:= 0; i < numThreads; i++ {
+        <- blocker
     }
 
     elapsedTime := time.Since(startTime)

@@ -267,7 +267,7 @@ func main() {
 
         //set up running average for timing
         batchesCompleted := 0
-        var totalTime, totalShuffleTime, totalRevealTime, totalRebuttalTime time.Duration
+        var totalTime, totalShuffleTime, totalRevealTime time.Duration
         
         numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
 
@@ -503,11 +503,6 @@ func main() {
                 totalShuffleTime += shuffleElapsedTime
                 totalRevealTime += revealElapsedTime
             }
-
-            // rebuttal
-            rebuttal, rebuttalTime := rebuttalSim(mergedDB)
-            log.Printf("rebuttal result: %t\n", rebuttal)
-            totalRebuttalTime += rebuttalTime
             
             //only the leader outputs the stats on the last round
             if leader && testCount == serverTestNum-1 {
@@ -517,9 +512,13 @@ func main() {
                 fmt.Printf("reveal time: %s, average: %s\n", revealElapsedTime, totalRevealTime/time.Duration(batchesCompleted))
                 fmt.Printf("batches completed: %d\n", batchesCompleted)
                 fmt.Printf("Average time per batch: %s\n\n", totalTime/time.Duration(batchesCompleted))
-                fmt.Printf("Average rebuttal time: %s\n\n\n", totalRebuttalTime/time.Duration(batchesCompleted))
                 
                 log.Printf("Average time per batch: %s\n\n\n", totalTime/time.Duration(batchesCompleted))
+
+                //Since rebuttal takes too much time, we only evaluate once
+                rebuttal, rebuttalTime := rebuttalSim(mergedDB)
+                log.Printf("rebuttal result: %t\n", rebuttal)
+                fmt.Printf("Rebuttal time: %s\n\n\n", rebuttalTime)
             }
         }
     }
