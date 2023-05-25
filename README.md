@@ -1,5 +1,8 @@
-# Clarion
-Metadata-hiding communication from shuffling secret-shared data
+# CRAB
+
+Client-Rebuttable Anonymous Broadcast
+
+This repository is originated from [Clarion](https://github.com/SabaEskandarian/Clarion), a metadata-hiding communication from shuffling secret-shared data
 
 #### Compile
 
@@ -14,7 +17,6 @@ To run the system, run the following command on each server, with serverNums in 
 
 ```
 server [serverNum] [paramFile]
-
 ```
 
 ParamFile holds one parameter per line, as described below. running `./server help` will also print directions, and there are examples in this repository under `server/params/`. 
@@ -27,13 +29,7 @@ ParamFile holds one parameter per line, as described below. running `./server he
 
 *  The list is terminated by a line which only says `PARAMS`
 
-*  Next there are at least `numParams` sets of three lines each:
-
-   - First, either the word `messaging` or `standard` to indicate the evaluation mode. In messaging mode, only the first block of each message is MACed.
-   
-   - Second, the number of 16-byte blocks in each message
-   
-   - Third, the number of messages in a shuffling batch
+*  Next there are at least `numParams` lines, each line is the number of messages in a shuffling batch
 
 
 #### Notes
