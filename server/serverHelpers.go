@@ -123,6 +123,29 @@ func getShareOfExp(baseShare, exponent, beaversA, beaversB, beaversC []byte, con
     return product
 }
 
+func rebuttalSim(db []byte) (bool, time.Duration) {
+    startTime := time.Now()
+    rebuttal := true
+    batchSize := len(db)/(blockSize*2)
+    if len(db) % (blockSize*2) != 0 {
+        panic("database has length not a multiple of message length")
+    }
+    for i:=0; i<batchSize; i++ {
+        secret := make([]byte, blockSize*2)
+        _, err := rand.Read(secret)
+        if err != nil {
+            log.Println("couldn't generate randomness")
+            panic(err)
+        }
+        if mycrypto.CheckMsgSecret(db[blockSize*2*i:blockSize*2*(i+1)], secret) {
+            rebuttal = false
+        }
+    }
+
+    elapsedTime := time.Since(startTime)
+    return rebuttal, elapsedTime
+}
+
 func myClientSim(msgType int, pubKeys []*[32]byte, withProof bool) ([]byte, time.Duration) {
     startTime := time.Now()
     numServers := len(pubKeys)

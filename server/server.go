@@ -235,7 +235,7 @@ func main() {
             clientTime := leaderReceivingProof(i, db, conns, pubKeys)
             totalClientTime += clientTime
             pass, serverTime := checkProof(db, beaversA, beaversB, beaversC, conns, serverNum, true)
-            fmt.Printf("Client %d's validation: %t\n", i, pass)
+            log.Printf("Client %d's validation: %t\n", i, pass)
             totalServerTime += serverTime
             if i == clientTestNum - 1 {
                 fmt.Printf("Client average compute time: %s\n\n", totalClientTime/time.Duration(10))
@@ -267,7 +267,7 @@ func main() {
 
         //set up running average for timing
         batchesCompleted := 0
-        var totalTime, totalShuffleTime, totalRevealTime time.Duration
+        var totalTime, totalShuffleTime, totalRevealTime, totalRebuttalTime time.Duration
         
         numThreads, chunkSize := mycrypto.PickNumThreads(batchSize)
 
@@ -492,10 +492,7 @@ func main() {
             }
             //merge DBs
             mergedDB := mergeFlattenedDBs(flatDBs, numServers, len(flatDB))
-            
-            _ = mergedDB
-            /*The servers don't actually need to do this last step, the clients can do it 
-            themselves, both when it's used for broadcast and messaging*/
+            //The servers don't actually need to do this last step, the clients can do it themselves
             
             revealElapsedTime := time.Since(revealTimeStart)
             elapsedTime := time.Since(startTime)
@@ -506,17 +503,21 @@ func main() {
                 totalShuffleTime += shuffleElapsedTime
                 totalRevealTime += revealElapsedTime
             }
+
+            // rebuttal
+            rebuttal, rebuttalTime := rebuttalSim(mergedDB)
+            log.Printf("rebuttal result: %t\n", rebuttal)
+            totalRebuttalTime += rebuttalTime
             
             //only the leader outputs the stats on the last round
             if leader && testCount == serverTestNum-1 {
-
-                // log.Println(mergedDB)
                 
                 fmt.Printf("%d servers, %d msgs per batch, %d byte messages\n", numServers, batchSize, 127)
                 fmt.Printf("shuffle time: %s, average: %s\n", shuffleElapsedTime, totalShuffleTime/time.Duration(batchesCompleted))
                 fmt.Printf("reveal time: %s, average: %s\n", revealElapsedTime, totalRevealTime/time.Duration(batchesCompleted))
                 fmt.Printf("batches completed: %d\n", batchesCompleted)
-                fmt.Printf("Average time per batch: %s\n\n\n", totalTime/time.Duration(batchesCompleted))
+                fmt.Printf("Average time per batch: %s\n\n", totalTime/time.Duration(batchesCompleted))
+                fmt.Printf("Average rebuttal time: %s\n\n\n", totalRebuttalTime/time.Duration(batchesCompleted))
                 
                 log.Printf("Average time per batch: %s\n\n\n", totalTime/time.Duration(batchesCompleted))
             }

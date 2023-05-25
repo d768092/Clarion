@@ -117,6 +117,18 @@ func MakeFullMsg(msgType int, secret []byte) []byte {
     return ret
 }
 
+func CheckMsgSecret(message, secret []byte) bool {
+    var mElement, MElement, temp modp.Element
+    mElement.SetBytes(message[:blockSize])
+    MElement.SetBytes(message[blockSize:])
+    s1 := new(big.Int).SetBytes(secret[:blockSize])
+    s2 := new(big.Int).SetBytes(secret[blockSize:])
+    mElement.Exp(mElement, s1)
+    temp.Exp(g3Element, s2)
+    temp.Mul(&mElement, &temp)
+    return temp.Equal(&MElement)
+}
+
 // return the proof: bshare, (a, z1, z2)
 func MakeProof(msgShares [][]byte, msg, id, secret []byte) ([][] byte, []byte) {
     numServers := len(msgShares)
