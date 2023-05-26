@@ -1,0 +1,94 @@
+Client average compute time: 47.785464ms
+
+Server average compute time: 71.095494ms
+
+4 servers, 100 msgs per batch, 127 byte messages
+shuffle time: 11.728049ms, average: 11.543384ms
+reveal time: 8.596845ms, average: 8.221876ms
+batches completed: 5
+Average time per batch: 19.795681ms
+
+Rebuttal time: 199.597941ms
+
+
+4 servers, 200 msgs per batch, 127 byte messages
+shuffle time: 15.308636ms, average: 14.86842ms
+reveal time: 14.187321ms, average: 14.674654ms
+batches completed: 5
+Average time per batch: 29.597405ms
+
+Rebuttal time: 305.018186ms
+
+
+4 servers, 500 msgs per batch, 127 byte messages
+shuffle time: 40.497705ms, average: 39.081268ms
+reveal time: 33.712595ms, average: 32.628076ms
+batches completed: 5
+Average time per batch: 71.829789ms
+
+Rebuttal time: 804.21377ms
+
+
+4 servers, 1000 msgs per batch, 127 byte messages
+shuffle time: 55.442568ms, average: 57.061265ms
+reveal time: 58.099233ms, average: 64.883048ms
+batches completed: 5
+Average time per batch: 122.097155ms
+
+Rebuttal time: 812.284219ms
+
+
+4 servers, 2000 msgs per batch, 127 byte messages
+shuffle time: 95.075224ms, average: 95.137733ms
+reveal time: 110.878399ms, average: 108.608828ms
+batches completed: 5
+Average time per batch: 203.867521ms
+
+Rebuttal time: 1.095881055s
+
+
+4 servers, 5000 msgs per batch, 127 byte messages
+shuffle time: 208.095206ms, average: 204.424861ms
+reveal time: 258.718629ms, average: 257.207325ms
+batches completed: 5
+Average time per batch: 461.939752ms
+
+Rebuttal time: 3.207749473s
+
+
+4 servers, 10000 msgs per batch, 127 byte messages
+shuffle time: 386.468087ms, average: 391.507877ms
+reveal time: 479.954462ms, average: 487.815699ms
+batches completed: 5
+Average time per batch: 879.774713ms
+
+Rebuttal time: 4.913760293s
+
+
+4 servers, 20000 msgs per batch, 127 byte messages
+shuffle time: 759.57666ms, average: 767.459063ms
+reveal time: 897.868401ms, average: 891.076855ms
+batches completed: 5
+Average time per batch: 1.659101348s
+
+Rebuttal time: 8.834952636s
+
+
+4 servers, 50000 msgs per batch, 127 byte messages
+shuffle time: 1.736158549s, average: 1.748606025s
+reveal time: 1.974981915s, average: 2.035113288s
+batches completed: 5
+Average time per batch: 3.784478303s
+
+Rebuttal time: 20.691744206s
+
+
+4 servers, 100000 msgs per batch, 127 byte messages
+shuffle time: 3.252422693s, average: 3.255310544s
+reveal time: 3.655347394s, average: 3.857357136s
+batches completed: 5
+Average time per batch: 7.113586917s
+
+Rebuttal time: 39.807128284s
+
+
