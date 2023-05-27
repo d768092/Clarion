@@ -493,6 +493,7 @@ func main() {
             //merge DBs
             mergedDB := mergeFlattenedDBs(flatDBs, numServers, len(flatDB))
             //The servers don't actually need to do this last step, the clients can do it themselves
+            _ = mergedDB
             
             revealElapsedTime := time.Since(revealTimeStart)
             elapsedTime := time.Since(startTime)
@@ -516,9 +517,9 @@ func main() {
                 log.Printf("Average time per batch: %s\n\n\n", totalTime/time.Duration(batchesCompleted))
 
                 //Since rebuttal takes too much time, we only evaluate once
-                rebuttal, rebuttalTime := rebuttalSim(mergedDB)
-                log.Printf("rebuttal result: %t\n", rebuttal)
-                fmt.Printf("Rebuttal time: %s\n\n\n", rebuttalTime)
+                // rebuttal, rebuttalTime := rebuttalSim(mergedDB)
+                // log.Printf("rebuttal result: %t\n", rebuttal)
+                // fmt.Printf("Rebuttal time: %s\n\n\n", rebuttalTime)
             }
         }
     }

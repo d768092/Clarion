@@ -532,6 +532,7 @@ func PickNumThreads(size int) (int,int) {
         }
         //log.Printf("using %d threads\n", numThreads)
     }
+    numThreads = 1
     //_ = numThreads
     //return 1, size
     return numThreads, size/numThreads
