@@ -30,10 +30,10 @@ Rebuttal time: 410.589846ms
 
 
 4 servers, 1024 msgs per batch, 127 byte messages
-shuffle time: 79.348785ms, average: 70.844547ms
-reveal time: 62.380105ms, average: 59.364064ms
+shuffle time: 73.979281ms, average: 81.516422ms
+reveal time: 62.248028ms, average: 105.226634ms
 batches completed: 5
-Average time per batch: 130.350624ms
+Average time per batch: 186.89261ms
 
 Rebuttal time: 606.307763ms
 
