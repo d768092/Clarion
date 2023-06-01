@@ -1,130 +1,130 @@
-Client average compute time: 49.443466ms
+Client average compute time: 48.382007ms
 
-Server average compute time: 70.974288ms
+Server average compute time: 71.970543ms
 
 4 servers, 128 msgs per batch, 127 byte messages
-shuffle time: 11.91322ms, average: 14.150365ms
-reveal time: 9.776052ms, average: 10.306458ms
+shuffle time: 13.83311ms, average: 14.122429ms
+reveal time: 10.880288ms, average: 10.408691ms
 batches completed: 5
-Average time per batch: 24.532587ms
+Average time per batch: 24.606447ms
 
-Rebuttal time: 120.979256ms
+Rebuttal time: 101.00811ms
 
 
 4 servers, 256 msgs per batch, 127 byte messages
-shuffle time: 20.830553ms, average: 22.580866ms
-reveal time: 19.319586ms, average: 19.010043ms
+shuffle time: 26.438385ms, average: 26.815624ms
+reveal time: 20.067195ms, average: 19.917052ms
 batches completed: 5
-Average time per batch: 41.657787ms
+Average time per batch: 46.83066ms
 
-Rebuttal time: 215.205742ms
+Rebuttal time: 176.471496ms
 
 
 4 servers, 512 msgs per batch, 127 byte messages
-shuffle time: 36.305939ms, average: 37.896302ms
-reveal time: 32.061043ms, average: 33.351096ms
+shuffle time: 41.7386ms, average: 47.403929ms
+reveal time: 33.897356ms, average: 33.299331ms
 batches completed: 5
-Average time per batch: 71.351401ms
+Average time per batch: 80.781857ms
 
-Rebuttal time: 367.751081ms
+Rebuttal time: 410.589846ms
 
 
 4 servers, 1024 msgs per batch, 127 byte messages
-shuffle time: 79.348785ms, average: 70.844547ms
-reveal time: 62.380105ms, average: 59.364064ms
+shuffle time: 73.979281ms, average: 81.516422ms
+reveal time: 62.248028ms, average: 105.226634ms
 batches completed: 5
-Average time per batch: 130.350624ms
+Average time per batch: 186.89261ms
 
-Rebuttal time: 734.727124ms
+Rebuttal time: 606.307763ms
 
 
 4 servers, 2048 msgs per batch, 127 byte messages
-shuffle time: 115.21736ms, average: 111.958406ms
-reveal time: 122.208123ms, average: 117.252649ms
+shuffle time: 104.531707ms, average: 122.235048ms
+reveal time: 115.908806ms, average: 115.7495ms
 batches completed: 5
-Average time per batch: 229.301715ms
+Average time per batch: 238.175698ms
 
-Rebuttal time: 1.365396021s
+Rebuttal time: 1.062634266s
 
 
 4 servers, 4096 msgs per batch, 127 byte messages
-shuffle time: 179.189785ms, average: 180.765875ms
-reveal time: 213.264918ms, average: 213.645479ms
+shuffle time: 207.673809ms, average: 195.076536ms
+reveal time: 208.100307ms, average: 208.402426ms
 batches completed: 5
-Average time per batch: 394.54716ms
+Average time per batch: 403.752575ms
 
-Rebuttal time: 2.706844403s
+Rebuttal time: 2.136635448s
 
 
 4 servers, 8192 msgs per batch, 127 byte messages
-shuffle time: 341.859808ms, average: 346.320565ms
-reveal time: 412.332277ms, average: 431.572548ms
+shuffle time: 344.602346ms, average: 348.924953ms
+reveal time: 402.039814ms, average: 421.429079ms
 batches completed: 5
-Average time per batch: 778.20574ms
+Average time per batch: 770.559405ms
 
-Rebuttal time: 4.98062461s
+Rebuttal time: 3.715251784s
 
 
 4 servers, 16384 msgs per batch, 127 byte messages
-shuffle time: 637.372832ms, average: 654.179194ms
-reveal time: 745.797255ms, average: 769.980654ms
+shuffle time: 641.129202ms, average: 655.327289ms
+reveal time: 749.770728ms, average: 756.623564ms
 batches completed: 5
-Average time per batch: 1.424688785s
+Average time per batch: 1.412442035s
 
-Rebuttal time: 10.050658113s
+Rebuttal time: 7.468552591s
 
 
 4 servers, 32768 msgs per batch, 127 byte messages
-shuffle time: 1.187837767s, average: 1.197862255s
-reveal time: 1.494979311s, average: 1.483643194s
+shuffle time: 1.229614676s, average: 1.237618454s
+reveal time: 1.377508379s, average: 1.396914104s
 batches completed: 5
-Average time per batch: 2.682141292s
+Average time per batch: 2.635149036s
 
-Rebuttal time: 16.804723005s
+Rebuttal time: 14.712067888s
 
 
 4 servers, 65536 msgs per batch, 127 byte messages
-shuffle time: 2.227603461s, average: 2.306833367s
-reveal time: 2.626218978s, average: 2.89961897s
+shuffle time: 2.263145023s, average: 2.358786025s
+reveal time: 2.544090686s, average: 2.530734751s
 batches completed: 5
-Average time per batch: 5.207191326s
+Average time per batch: 4.89026256s
 
-Rebuttal time: 36.652030144s
+Rebuttal time: 29.294881989s
 
 
 4 servers, 131072 msgs per batch, 127 byte messages
-shuffle time: 4.319865322s, average: 4.384638843s
-reveal time: 4.940080564s, average: 5.569135246s
+shuffle time: 4.178482222s, average: 4.345203038s
+reveal time: 4.811813738s, average: 5.044892558s
 batches completed: 5
-Average time per batch: 9.954696818s
+Average time per batch: 9.391105875s
 
-Rebuttal time: 1m10.862556771s
+Rebuttal time: 53.172590406s
 
 
 4 servers, 262144 msgs per batch, 127 byte messages
-shuffle time: 8.44603584s, average: 8.772573122s
-reveal time: 9.424786944s, average: 10.274093338s
+shuffle time: 8.024279749s, average: 8.416817225s
+reveal time: 8.852713257s, average: 9.475221218s
 batches completed: 5
-Average time per batch: 19.052462513s
+Average time per batch: 17.893491176s
 
-Rebuttal time: 2m26.176277315s
+Rebuttal time: 1m48.62990148s
 
 
 4 servers, 524288 msgs per batch, 127 byte messages
-shuffle time: 16.179071948s, average: 17.124089399s
-reveal time: 18.973685476s, average: 19.802377452s
+shuffle time: 15.571729702s, average: 16.775684287s
+reveal time: 17.391027162s, average: 18.335905522s
 batches completed: 5
-Average time per batch: 36.929008486s
+Average time per batch: 35.113912518s
 
-Rebuttal time: 4m46.505272588s
+Rebuttal time: 3m48.027944719s
 
 
 4 servers, 1048576 msgs per batch, 127 byte messages
-shuffle time: 31.943937349s, average: 33.547754446s
-reveal time: 36.377667327s, average: 39.026227497s
+shuffle time: 31.589908081s, average: 32.087957621s
+reveal time: 34.016780141s, average: 35.90035559s
 batches completed: 5
-Average time per batch: 1m12.581661849s
+Average time per batch: 1m7.993329466s
 
-Rebuttal time: 8m35.078633611s
+Rebuttal time: 7m25.004017479s
 
 
